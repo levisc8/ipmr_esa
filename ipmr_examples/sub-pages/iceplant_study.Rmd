@@ -1,0 +1,66 @@
+### Setup
+
+*Carpobrotus* species are succulents in the family *Aizoaceae*. Most are native to Cape Region of South Africa, and some have become invasive in Mediterranean-like ecosystems around the world. The exercise below will use data collect on a *Carpobrotus* species from a suburb of Tel Aviv, in Israel. This particular species/hybrid complex is a perennial that can live for decades.
+
+The data were collected using drones to capture photos of the population. Individual photos were stitched together into a single, geo-referenced orthomosaic image. Polygons were drawn around plants, and visible flowers were counted. The following year, the drone flew a similar flight path, and orthomosaics were overlaid on each other to record survival, growth, and new recruitment. We will skip the process of extracting this information from polygon layers, and just load the final result into our session:
+
+
+```{r echo = TRUE, eval = TRUE}
+library(ipmr)
+
+carp_df <- read.csv("../data/iceplant.csv")
+
+str(carp_df)
+
+```
+
+The columns of the data set are:
+
+    - `id`: a unique integer ID for each plant.
+    
+    - `size`: the size of each plant in $m^2$ at time $t$.
+    
+    - `flower_n`: The number of flowers the plant produced at time $t$. `NA`'s correspond to non-reproductive plants.
+    
+    - `log_size`: Log transformed `size`.
+    
+    - `repro`: `1` if the plant had flowers, `0` if the plant had no flowers.
+    
+    - `size_next`: The size of each plant in $m^2$ at time $t+1$. If the plant did not survive, then this will be `NA`.
+    
+    - `flower_n_next`: The number of flowers the plant produced at time $t+1$. `NA` if the plant was not reproductive.
+    
+    - `survival`: `1` if the plant survived from time $t$ to time $t+1$. `0` if not. `NA`'s correspond to new recruits that were not present at time $t$, but were present at $t+1$.
+    
+    - `log_size_next`: Log transformed `size_next`.
+    
+    - `repro_next`: `1` if the plant had flowers at $t+1$, `0` if the plant had no flowers at $t+1$, `NA` if the plant did not survive to $t+1$.
+    
+### Writing down the model
+
+The first step of getting a model fit with `ipmr` is to describe on paper how we want to model. This example assumes there is no seed bank. Thus, plants can survive (`s`) from one year to the next. If they survive, they may grow (`g`). Reproductive plants (`r_p`) can create new plants via seeds (`r_n`) that either germinate immediately (`r_g`) to produce seedlings with size `r_d` or do not germinate at all. 
+
+
+```{r echo = FALSE}
+
+library(DiagrammeR)
+
+grViz("
+  digraph circles {
+  
+  graph [overlap = true, fontsize = 12]
+  
+  node [shape    = circle,
+        fontname = Helvetica]
+  Plants
+  
+  Plants -> Plants [label = 's * g + (existing plants)\n r_p * r_n * r_d * r_g (new recruits)']
+    
+  }    
+        
+      ")
+
+
+```
+    
+    
