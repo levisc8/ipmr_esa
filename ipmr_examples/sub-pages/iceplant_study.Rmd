@@ -16,29 +16,29 @@ str(carp_df)
 
 The columns of the data set are:
 
-    - `id`: a unique integer ID for each plant.
+  - `id`: a unique integer ID for each plant.
     
-    - `size`: the size of each plant in $m^2$ at time $t$.
+  - `size`: the size of each plant in $m^2$ at time $t$.
     
-    - `flower_n`: The number of flowers the plant produced at time $t$. `NA`'s correspond to non-reproductive plants.
+  - `flower_n`: The number of flowers the plant produced at time $t$. `NA`'s correspond to non-reproductive plants. This is denoted $r_n$ in the rest of this tutorial.
     
-    - `log_size`: Log transformed `size`.
+  - `log_size`: Log transformed `size`. This is denoted $z$ in the rest of this tutorial.
     
-    - `repro`: `1` if the plant had flowers, `0` if the plant had no flowers.
+  - `repro`: `1` if the plant had flowers, `0` if the plant had no flowers. This is denoted $r_p$ in the rest of this tutorial.
     
-    - `size_next`: The size of each plant in $m^2$ at time $t+1$. If the plant did not survive, then this will be `NA`.
+  - `size_next`: The size of each plant in $m^2$ at time $t+1$. If the plant did not survive, then this will be `NA`. This is denoted $z'$ in the rest of this tutorial.
     
-    - `flower_n_next`: The number of flowers the plant produced at time $t+1$. `NA` if the plant was not reproductive.
+  - `flower_n_next`: The number of flowers the plant produced at time $t+1$. `NA` if the plant was not reproductive.
     
-    - `survival`: `1` if the plant survived from time $t$ to time $t+1$. `0` if not. `NA`'s correspond to new recruits that were not present at time $t$, but were present at $t+1$.
+  - `survival`: `1` if the plant survived from time $t$ to time $t+1$. `0` if not. `NA`'s correspond to new recruits that were not present at time $t$, but were present at $t+1$. This is denoted $s$ in the rest of this tutorial.
     
-    - `log_size_next`: Log transformed `size_next`.
+  - `log_size_next`: Log transformed `size_next`.
     
-    - `repro_next`: `1` if the plant had flowers at $t+1$, `0` if the plant had no flowers at $t+1$, `NA` if the plant did not survive to $t+1$.
+  - `repro_next`: `1` if the plant had flowers at $t+1$, `0` if the plant had no flowers at $t+1$, `NA` if the plant did not survive to $t+1$.
     
 ### Writing down the model
 
-The first step of getting a model fit with `ipmr` is to describe on paper how we want to model. This example assumes there is no seed bank. Thus, plants can survive (`s`) from one year to the next. If they survive, they may grow (`g`). Reproductive plants (`r_p`) can create new plants via seeds (`r_n`) that either germinate immediately (`r_g`) to produce seedlings with size `r_d` or do not germinate at all. 
+The first step of getting a model implemented with `ipmr` is to describe on paper how the life cycle works. This example assumes there is no seed bank. Thus, plants can survive (`s`) from one year to the next. If they survive, they will grow, shrink, or remain the same size (`g`). Reproductive plants (`r_p`) can create new plants via seeds (`r_n`) that either germinate immediately (`r_g`) to produce seedlings with size `r_d` or do not germinate at all. 
 
 
 ```{r echo = FALSE}
@@ -51,16 +51,378 @@ grViz("
   graph [overlap = true, fontsize = 12]
   
   node [shape    = circle,
-        fontname = Helvetica]
+        fontname = Helvetica,
+        nodesep  = 2.0]
   Plants
   
-  Plants -> Plants [label = 's * g + (existing plants)\n r_p * r_n * r_d * r_g (new recruits)']
+  Plants:n -> Plants:n [label = 'P = s * g (existing plants)']
+  Plants:s -> Plants:s [label = 'F = r_p * r_n * r_d * r_g (new recruits)']
     
   }    
         
-      ")
+")
 
+```
+Here, we have defined two different processes that can produce plants at $t+1$. The first process is survival and growth of existing plants time $t$. The second process is sexual reproduction that produces new recruits at $t+1$.i In `ipmr`, each process is encapsulated in a *sub-kernel*, named $P$ and $F$ here. Note that in our diagram, we have explicitly omitted conditioning vital rates on size $z$ and $z'$, as we haven't yet explored our data and aren't sure yet which ones will be functions of size. 
+
+### Fitting the vital rate data
+
+Now that we've drawn the life cycle graph, we should have do some exploratory data analysis to see what the demographic relationships look like. We'll make a set of plots for survival, growth, probability of flowering, flower number, and recruit sizes, then decide what sort of regression models make sense for each one.
+
+
+```{r plotting, echo = TRUE, fig.height = 8, fig.width = 7}
+
+recr_df <- carp_df[is.na(carp_df$log_size), ]
+
+par(mfrow = c(3,2))
+
+plot(jitter(survival, amount = 0.05) ~ log_size,
+     data = carp_df,
+     xlab = "",
+     ylab = "Survival (t + 1)")
+
+plot(log_size_next ~ log_size,
+     data = carp_df,
+     xlab = "",
+     ylab = "Size (t + 1)")
+
+plot(jitter(repro, amount = 0.05) ~ log_size,
+     data = carp_df,
+     xlab = "Size (t)",
+     ylab = "Reproductive (t)")
+
+plot(flower_n ~ log_size, 
+     data = carp_df,
+     xlab = "Size (t)",
+     ylab = "# of Flowers")
+
+hist(recr_df$log_size_next,
+     xlab = "Size (t + 1)",
+     main = "",
+     freq = FALSE)
+
+```
+
+Based on the distributions of the raw data, we'll use logistic regressions for survival and probability of flowering, a linear regression for growth, and a Poisson regression for flower number. The recruit size distribution looks roughly Normal, though is a bit skewed. For the purpose of this tutorial, we'll use a Normal to start and investigate how changing that affects our results. 
+
+### Re-writing the model
+
+Now that we've plotted our data and decided which type of model to use for each vital rate, it can be useful to revisit our life cycle diagram and make the size dependence explicit for each kernel. Rather than re-draw the graph, we'll just write down each sub-kernel and vital rate like so:
+
+1. $P(z',z) = s(z) * G(z',z),$
+
+2. $Logit(s(z)) = \alpha_s + \beta_s * z,$
+
+3. $G(z',z) = f_G(z', \mu_G(z), \sigma_G).$ $f_G$ denotes a normal probability density function.
+
+4. $\mu_G(z) = \alpha_G + \beta_G * z.$
+
+We can see here that we have two regressions - one for survival, and one for growth. One way that IPMs incorporate random variation in traits is using variance in size conditional on survival (Eq 3). Thus, we have parameters that predict the mean size at $t+1$ (Eq 4), and a standard deviation of that mean ($\sigma_G$). The latter accounts for the fact that individuals with the same initial size may not grow/shrink by the same amount in a given year.
+
+The $F$ kernel is now re-written:
+
+5. $F(z', z) = r_p(z) * r_n(z) * r_d(z') * r_g,$
+
+6. $Logit(r_p(z)) = \alpha_{r_p} + \beta_{r_p} * z,$
+
+7. $Log(r_n(z)) = \alpha_{r_n} + \beta_{r_n,1} * z + \beta_{r_n,2} * z^2,$
+
+    + NB: The rationale for the $\beta_{r_n,2} * z^2$ term will become apparent in the next section.
+
+8. $r_d(z') = f_{r_d}(z', \mu_{r_d}, \sigma_{r_d})$. $f_{r_d}$ denotes a normal probability density function.
+
+We have now written out our model, and are ready to parameterize our vital rate functions!
+
+### Implementing the regression models
+
+It's time to implement the regression models. In order to investigate goodness of fit, we'll implement vital rate models with an intercept only, a single fixed effect for size, and a quadratic term for size. We'll then use AIC to select the best one. We'll start with the survival model.
+
+```{r, echo  = TRUE}
+
+s_1 <- glm(survival ~ 1, data = carp_df, family = binomial())
+s_2 <- glm(survival ~ log_size, data = carp_df, family = binomial())
+s_3 <- glm(survival ~ log_size + I(log_size ^ 2), data = carp_df, family = binomial())
+
+AIC(s_1, s_2, s_3)
+
+summary(s_2)
+
+s_pars <- coef(s_2)
+
+```
+
+The intercept-only model is clearly the worst performing. The model with a single fixed effect is slightly better than the quadratic one. In other circumstances, we might average these two models because their $\Delta AIC$ is pretty small. Here, for the sake of simplicity, we'll just use the model with a single fixed effect. We store the coefficients from that model in the `s_pars` object.
+
+Next, we'll model growth:
+
+```{r, echo  = TRUE}
+
+g_1 <- glm(log_size_next ~ 1, data = carp_df)
+g_2 <- glm(log_size_next ~ log_size, data = carp_df)
+g_3 <- glm(log_size_next ~ log_size + I(log_size ^ 2), data = carp_df)
+
+AIC(g_1, g_2, g_3)
+
+summary(g_2)
+
+g_pars <- c(coef(g_2), sd(resid(g_2)))
+
+```
+
+We see a similar situation with growth as we did with survival, and so we'll just use the `g_2` model. The growth kernel has an additional parameter, which is the standard deviation of the residual variance in our growth regression. We extract that and add it into the parameter vector.
+
+Pprobability of flowering:
+
+```{r, echo  = TRUE}
+
+r_p_1 <- glm(repro ~ 1, data = carp_df, family = binomial())
+r_p_2 <- glm(repro ~ log_size, data = carp_df, family = binomial())
+r_p_3 <- glm(repro ~ log_size + I(log_size ^ 2), data = carp_df, family = binomial())
+
+AIC(r_p_1, r_p_2, r_p_3)
+summary(r_p_3)
+
+r_p_pars <- coef(r_p_3)
+
+```
+
+Next, flower production: 
+
+```{r, echo  = TRUE}
+
+
+r_n_1 <- glm(flower_n ~ 1, data = carp_df, family = poisson())
+r_n_2 <- glm(flower_n ~ log_size, data = carp_df, family = poisson())
+r_n_3 <- glm(flower_n ~ log_size + I(log_size ^ 2), data = carp_df, family = poisson())
+
+AIC(r_n_1, r_n_2, r_n_3)
+summary(r_n_3)
+
+# Looks overdispersed. Let's try a negative binomial instead.
+
+library(MASS)
+
+r_n_1 <- glm.nb(flower_n ~ 1, data = carp_df)
+r_n_2 <- glm.nb(flower_n ~ log_size, data = carp_df)
+r_n_3 <- glm.nb(flower_n ~ log_size + I(log_size ^ 2), data = carp_df)
+
+AIC(r_n_1, r_n_2, r_n_3)
+summary(r_n_3)
+
+r_n_pars <- coef(r_n_3)
+
+
+```
+ 
+Finally, recruit sizes and probability of establishment. The final term in the subsetting removes plants that were reproductive at $t + 1$, but not observable at time $t$ due to vegetation obscuring them. 
+
+```{r, echo  = TRUE}
+
+recr_data <- subset(carp_df, is.na(log_size) & !is.na(log_size_next) & is.na(flower_n_next))
+
+r_d_pars  <- c(mean(recr_data$log_size_next),
+               sd(recr_data$log_size_next))
+
+r_g_pars  <- nrow(recr_data) / sum(carp_df$flower_n, na.rm = TRUE)
+
+```
+
+### IPM initialization
+
+Before writing any more code, we need to work out what type of IPM we want. `init_ipm()` is the first function call in any modeling pipeline in `ipmr`, and serves this purpose. It takes at least 3, and up to 5, arguments. 
+
+1. `sim_gen` - simple vs general IPM: 
+
+    + Simple IPMs structure a population with one, and only one, continuous trait. `init_ipm(sim_gen = ""simple", ...)`.
+    
+    + General IPMs structure a population with more than one continuous trait and/or a mixture of discrete and continuous traits. `init_ipm(sim_gen = "general", ...)`.
+    
+*This is a simple IPM, because we are just using log-transformed surface area to structure the population. There is not seed bank or seedling stage, nor is there another trait that we use to predict demographic outcomes.*
+
+2. `di_dd` - Density/frequency-independent vs density/frequency dependent IPM:
+
+    + Density/frequency-independent models do not have any vital rates/sub-kernels that are functions of population size or relative frequency of a trait value. `init_ipm(..., di_dd = "di")`.
+    
+    + Density/frequency-independent models have at least 1, but maybe more, vital rates/su b-kernels that are functions of population size or relative frequency of a trait value. `init_ipm(..., di_dd = "dd")`.
+    
+*This is a density-independent IPM because we do not have information on how vital rates vary with population size or proximity of individuals to one another.*
+
+3. `det_stoch` - Deterministic vs stochastic IPM:
+
+    + Deterministic IPMs do not include any information on how vital rates vary through time. Thus, they will (usually) converge to the same stable state regardless of the initial population conditions after some transient phase. `init_ipm(..., det_stoch = "det")`.
+     
+    + Stochastic IPMs do include information on how vital rates vary as a function of the environment, and include these changes into simulations of population dynamics. `init_ipm(..., det_stoch = "stoch")`.
+    
+*This is a deterministic IPM because we do not have any information on how vital rates vary as a function of the environment.*
+    
+Since we are not going to cover stochastic IPMs in this exercise, we will skip the last two arguments to `init_ipm()`. 
+
+### Exercise --- `init_ipm()`
+
+Use the `init_ipm()` function to initialize an IPM for the Carpobrotus species we are working with. 
+
+```{r init_ipm-exercise, exercise = TRUE}
+
+carpobrotus_ipm <- init_ipm(sim_gen = ___, di_dd = ____, det_stoch = ____)
+
+```
+
+
+```{r init_ipm-exercise-hint-1}
+
+carpobrotus_ipm <- init_ipm(sim_gen = "simple", di_dd = ____, det_stoch = ____)
+
+```
+
+```{r init_ipm-exercise-hint-2}
+
+carpobrotus_ipm <- init_ipm(sim_gen = "simple", di_dd = "di", det_stoch = ____)
+
+```
+
+```{r init_ipm-exercise-solution}
+
+carpobrotus_ipm <- init_ipm(sim_gen = "simple", di_dd = "di", det_stoch = "det")
 
 ```
     
     
+### Creating `data_list`s
+
+`ipmr` requires all parameters in a model get passed as a list, where names of the list components correspond to parameter names, and numeric/integer values are the parameter values. We'll process this in the next code chunk. 
+
+```{r echo = TRUE}
+
+s_par_list <- setNames(as.list(s_pars),
+                       c("alpha_s", "beta_s"))
+g_par_list <- setNames(as.list(g_pars),
+                       c("alpha_G", "beta_G", "sigma_G"))
+
+r_p_par_list <- setNames(as.list(r_p_pars),
+                         c("alpha_r_p", "beta_r_p"))
+
+r_n_par_list <- setNames(as.list(r_n_pars),
+                         c("alpha_r_n", "beta_r_n_1", "beta_r_n_2"))
+r_d_par_list <- setNames(as.list(r_d_pars),
+                         c("mu_r_d", "sigma_r_d"))
+r_g_par_list <- list(r_g = r_g)
+
+all_pars <- c(s_par_list, g_par_list, 
+              r_p_par_list, r_n_par_list, 
+              r_d_par_list, r_g_par_list)
+
+```
+
+Note that the names here are chosen to mirror the notation we used above, but this is not a requirement in any way. The names chosen for each parameter can be whatever you like - the only requirement is that they are used correctly in each sub-kernel definition. We'll see how to do that next. 
+    
+### Defining sub-kernels
+
+`ipmr` defines each sub-kernel separately. That is, Equations 1 and 5 above each get their own function call, with equations 2-4 and 6-8 provided in each one. The function `ipmr` uses for this is called `define_kernel()`. It takes a sub-kernel name, a formula, vital rate expressions, a data list, and a list of states (traits). Below is the definition of the $P(z',z)$ kernel from Equation 1. Note how Equations 2-4 are translated as well. 
+
+```{r echo = TRUE}
+
+carpobrotus_ipm <- define_kernel(
+  proto_ipm = carpobrotus_ipm,
+  name      = "P",
+  formula   = s * G,                          # Equation 1
+  s         = plogis(alpha_s + beta_s * z_1), # Equation 2
+  G         = dnorm(z_2, mu_G, sigma_G),      # Equation 3
+  mu_G      = alpha_G + beta_G * z_1,         # Equation 4
+  data_list = all_pars,
+  states    = list(c("z"))
+)
+
+```
+
+
+There are a two things that need highlighting here:
+
+1. We have dropped the $(z',z)$/$(z)$ notation from the left hand side of our kernels/functions when translating them `ipmr` syntax.
+
+2. We have added variables called `z_1` and `z_2`. These correspond to $z$ and $z'$ respectively. These are defined internally by the modeling functions - we do not need to define values for them in the `data_list`. 
+
+3. The names in the `data_list` are used to create expressions for the functional form of each vital rate (i.e. `s`, `G`, and `mu_G`). These correspond to Equations 2-4 above. 
+
+
+### Exercise --- defining the $F(z',z)$ kernel
+
+The next exercise will go through the steps of defining the expressions that comprise the $F(z',z)$ kernel. 
+
+```{r, define_F-exericse, exercise = TRUE}
+
+carpobrotus_ipm <- define_kernel(
+  proto_ipm = carpobrotus_ipm,
+  name      = "F",
+  formula   = ____,
+  r_p       = plogis(____),
+  r_n       = exp(____),
+  r_d       = dnorm(____),
+  data_list = ____,
+  states    = list(c("z"))
+)
+
+```
+
+```{r, define_F-exericse-hint-1}
+
+carpobrotus_ipm <- define_kernel(
+  proto_ipm = carpobrotus_ipm,
+  name      = "F",
+  formula   = r_p * r_n * r_d * r_g,
+  r_p       = plogis(____),
+  r_n       = exp(____),
+  r_d       = dnorm(____),
+  data_list = ____,
+  states    = list(c("z"))
+)
+
+```
+
+```{r, define_F-exericse-hint-2}
+
+carpobrotus_ipm <- define_kernel(
+  proto_ipm = carpobrotus_ipm,
+  name      = "F",
+  formula   = r_p * r_n * r_d * r_g,
+  r_p       = plogis(alpha_r_p + beta_r_p * z_1),
+  r_n       = exp(____),
+  r_d       = dnorm(____),
+  data_list = ____,
+  states    = list(c("z"))
+)
+
+```
+
+```{r, define_F-exericse-hint-3}
+
+carpobrotus_ipm <- define_kernel(
+  proto_ipm = carpobrotus_ipm,
+  name      = "F",
+  formula   = r_p * r_n * r_d * r_g,
+  r_p       = plogis(alpha_r_p + beta_r_p * z_1),
+  r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2),
+  r_d       = dnorm(____),
+  data_list = ____,
+  states    = list(c("z"))
+)
+
+```
+
+```{r, define_F-exericse-solution}
+
+carpobrotus_ipm <- define_kernel(
+  proto_ipm = carpobrotus_ipm,
+  name      = "F",
+  formula   = r_p * r_n * r_d * r_g,                                  # Equation 5
+  r_p       = plogis(alpha_r_p + beta_r_p * z_1),                     # Equation 6
+  r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2), # Equation 7
+  r_d       = dnorm(z_2, mu_r_d, sigma_r_d),                          # Equation 8
+  data_list = all_pars,
+  states    = list(c("z"))
+)
+
+```
+
+
+
+### Defining numerical implementation rules

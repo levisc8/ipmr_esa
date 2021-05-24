@@ -17,10 +17,26 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ## Overview
 
-Welcome to the `ipmr` workshop! This workshop will teach you the basics of how to use `ipmr` to implement Integral Projection Models (IPM), as well as how to work with model objects to complete further analyses. Our first example will use real data to investigate optimal management strategies for an invasive population *Carpobrotus* species in Israel. We will also derive some life history traits, such as per-generation growth rates ($R_0$) and generation time ($T$).
+Welcome to the `ipmr` workshop! This workshop will teach you the basics of how to use `ipmr` to implement Integral Projection Models (IPM), as well as how to work with model objects to complete further analyses. Our first example will use real data to investigate optimal management strategies for an invasive population *Carpobrotus* species (iceplant) in Israel. We will also derive some life history traits, such as per-generation growth rates ($R_0$) and generation time ($T$).
 
 Next, we will use a data set for an endangered *Lupine* species from California to demonstrate how to model populations structured by a mixture of discrete and continuous traits. 
 
+## Notation for the tutorial
+
+This tutorial will make extensive use of exercises that use mathematical notation of IPMs to demonstrate how `ipmr` works with these models. This slide is a quick guide for the notation convention
+
+### Traits, kernels and functions
+
+  - Population trait distributions, such as size, weight, height, or color will be denoted $n(z,t)$ and $n(z',t+1)$. These are the trait distributions for trait $z$ at time $t$ and $z'$ at time $t+1$, respectively.
+  
+  - Bivariate kernels (i.e. kernels that are functions of $z$ and $z'$) will be capitalized and have at least two arguments (e.g. $P(z',z)$, $K(z',z, \theta)$). These may contain subscripts to denote parameter set indices (e.g. $P_{yr}(z',z)$).
+  
+  - Univariate functions (i.e. a regression model `survival ~ size`) will be lower case functions and have at least 1 argument (e.g. $Logit(s(z))$, or $Log(r_n(z, \theta))$). These may contain subscripts to denote parameter set indices (e.g. $Logit(r_{p,yr}(z))$).
+  
+  - Constant demographic parameters will be lower case and not be a function of anything (e.g. $r_g$). These may contain subscripts to denote parameter set indices (e.g. $r_{g,site}$).
+  
+  - Environmental parameters will be denoted $\theta$. These may contain subscripts to denote subsets of the parameter vector (e.g. $\theta_t$ for temperature).
+ 
 ## Iceplant IPM
 
 ```{r, child = 'sub-pages/iceplant_study.rmd'}
@@ -33,6 +49,5 @@ Next, we will use a data set for an endangered *Lupine* species from California 
 ```{r, child = 'sub-pages/lupine_study.rmd'}
 
 ```
-
 
 

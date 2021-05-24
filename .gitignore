@@ -42,3 +42,4 @@ vignettes/*.pdf
 # tutorial artefacts
 *.docx
 *.html
+*/ipmr_tutorial_files/*
