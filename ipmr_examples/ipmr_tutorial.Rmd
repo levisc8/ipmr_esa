@@ -6,6 +6,8 @@ output:
     allow_skip: true
     highlight: pygments
 runtime: shiny_prerendered
+tutorial:
+  version: 0.0.0.2
 ---
 
 
@@ -21,7 +23,39 @@ Welcome to the `ipmr` workshop! This workshop will teach you the basics of how t
 
 Next, we will use a data set for an endangered *Lupine* species from California to demonstrate how to model populations structured by a mixture of discrete and continuous traits. 
 
-## Notation for the tutorial
+This tutorial contains demonstrations of some newer features in `ipmr`, and therefore makes use of the development version of the package. We will also use a couple functions from `rlang`. If you haven't already installed them, please run the following chunk:
+
+```{r echo = TRUE, eval = FALSE}
+
+if(!requireNamespace("remotes")) {
+  install.packages("remotes")
+}
+
+install.packages("rlang")
+
+remotes::install_github("levisc8/ipmr")
+
+```
+
+### Finding help
+
+**Package website**
+
+The project website is https://levisc8.github.io/ipmr. This website contains all of the help files for the package's functions, as well as a number of longer articles on how to implement models.
+
+**Bug reports**
+
+Please use the issue tracker here: https://github.com/levisc8/ipmr/issues. If you are not comfortable with GitHub, then you can also email me (Sam).
+
+**Instructor Email Addresses**
+
+Sam: <levisc8@gmail.com>/<sam.levin@idiv.de>
+
+*Others! Fill in later*
+
+
+
+### Notation for the tutorial
 
 This tutorial will make extensive use of exercises that use mathematical notation of IPMs to demonstrate how `ipmr` works with these models. This slide is a quick guide for the notation convention
 
