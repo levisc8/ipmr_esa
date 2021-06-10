@@ -1,7 +1,7 @@
+
 library(ipmr)
 library(lme4)
 library(dplyr)
-
 
 # # Create a cleaner lupine data set for this tutorial
 # 
@@ -105,6 +105,12 @@ r_n_pl_pars <- as.list(unlist(ranef(seed_mod)$location)) %>%
 ## Seedling sizes 
 sdl_size_pars <- list(sdl_mu = 2.7254,
                       sdl_sd = 0.9146)
+
+germ          <- data.frame(
+  g_0 = 0.02465088,
+  g_1 = 0.01433191,
+  g_2 = 0.0005732764
+)
 
 germ_pars     <- as.list(germ)
 
@@ -220,7 +226,8 @@ lupine_ipm <- init_ipm("general", "di", "det") %>%
     return_all_envs = TRUE
   )
 
-lambda(lupine_ipm)
+range(lambda(lupine_ipm))
+hist(lambda(lupine_ipm), breaks = 20)
 
 
 lupine_stoch_ipm <- init_ipm("general", "di", "stoch", "kern") %>%
@@ -315,3 +322,5 @@ lupine_stoch_ipm <- init_ipm("general", "di", "stoch", "kern") %>%
     iterations      = 1000,
     return_all_envs = TRUE
   )
+
+lambda(lupine_stoch_ipm)
