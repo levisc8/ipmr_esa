@@ -340,7 +340,10 @@ carpobrotus_ipm <- define_kernel(
   G         = dnorm(z_2, mu_G, sigma_G),      # Equation 5
   mu_G      = alpha_G + beta_G * z_1,         # Equation 6
   data_list = all_pars,
-  states    = list(c("z"))
+  states    = list(c("z")),
+  evict_cor = TRUE,
+  evict_fun = truncated_distributions(fun = "norm",
+                                      target = "G")
 )
 
 ```
@@ -369,7 +372,10 @@ carpobrotus_ipm <- define_kernel(
   r_n       = exp(____),
   r_d       = dnorm(____),
   data_list = ____,
-  states    = list(c("z"))
+  states    = list(c("z")),
+  evict_cor = TRUE,
+  evict_fun = truncated_distributions(fun = "norm",
+                                      target = "r_d")
 )
 
 ```
@@ -384,7 +390,10 @@ carpobrotus_ipm <- define_kernel(
   r_n       = exp(____),                # Equation 9
   r_d       = dnorm(____),              # Equation 10
   data_list = ____,
-  states    = list(c("z"))
+  states    = list(c("z")),
+  evict_cor = TRUE,
+  evict_fun = truncated_distributions(fun = "norm",
+                                      target = "r_d")
 )
 
 ```
@@ -399,7 +408,10 @@ carpobrotus_ipm <- define_kernel(
   r_n       = exp(____),
   r_d       = dnorm(____),
   data_list = ____,
-  states    = list(c("z"))
+  states    = list(c("z")),
+  evict_cor = TRUE,
+  evict_fun = truncated_distributions(fun = "norm",
+                                      target = "r_d")
 )
 
 ```
@@ -414,7 +426,10 @@ carpobrotus_ipm <- define_kernel(
   r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2),
   r_d       = dnorm(____),
   data_list = ____,
-  states    = list(c("z"))
+  states    = list(c("z")),
+  evict_cor = TRUE,
+  evict_fun = truncated_distributions(fun = "norm",
+                                      target = "r_d")
 )
 
 ```
@@ -429,7 +444,10 @@ carpobrotus_ipm <- define_kernel(
   r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2), # Equation 9
   r_d       = dnorm(z_2, mu_r_d, sigma_r_d),                          # Equation 10
   data_list = all_pars,
-  states    = list(c("z"))
+  states    = list(c("z")),
+  evict_cor = TRUE,
+  evict_fun = truncated_distributions(fun = "norm",
+                                      target = "r_d")
 )
 
 ```
@@ -444,7 +462,10 @@ carpobrotus_ipm <- define_kernel(
   r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2), # Equation 9
   r_d       = dnorm(z_2, mu_r_d, sigma_r_d),                          # Equation 10
   data_list = all_pars,
-  states    = list(c("z"))
+  states    = list(c("z")),
+  evict_cor = TRUE,
+  evict_fun = truncated_distributions(fun = "norm",
+                                      target = "r_d")
 )
 
 
@@ -788,7 +809,11 @@ round(lambda(carpobrotus_observed_ipm_converged), digits = 3)
 
 ```
 
-Great! We're now converged to asymptotic dynamics, and our estimate of $\lambda$ is reliable (mathematically, anyway). The next two pieces of information we'll extract are the left and right eigenvectors (denoted $v(z)$ and $w(z)$, respectively). These correspond to the size specific reproductive values, and the stable size distribution for the population. These are used in a number of subsequent analyses, such as sensitivity and elasticity of $\lambda$ to perturbations to kernel elements.
+Great! Our projection has now converged to asymptotic dynamics :)
+
+### Asymptotic analyses
+
+The next two pieces of information we will extract are the left and right eigenvectors (denoted $v(z)$ and $w(z)$, respectively). These correspond to the size specific reproductive values, and the stable size distribution for the population. These are used in a number of subsequent analyses, such as sensitivity and elasticity of $\lambda$ to perturbations to kernel elements.
 
 `ipmr` provides two functions to extract these - `left_ev()` and `right_ev()`. Both functions take an IPM object, a number of iterations, and a tolerance for convergence as arguments. The latter two arguments are optional, and these functions will warn you if the defaults are insufficient for your needs.
 
@@ -797,6 +822,11 @@ Great! We're now converged to asymptotic dynamics, and our estimate of $\lambda$
 
 v_z <- left_ev(carpobrotus_observed_ipm_converged)
 w_z <- right_ev(carpobrotus_observed_ipm_converged)
+
+par(mfrow = c(1, 2))
+
+plot(w_z$z_w, type = "l", main = "Stable size distribution")
+plot(v_z$z_v, type = "l", main = "Reproductive Value")
 
 ```
 
@@ -810,13 +840,9 @@ The first analysis we will run is computing sensitivity and elasticity. We will 
 
 First, we will do kernel level perturbations. This is a partial derivative of $\lambda$ with respect to localized perturbation at $z_0, z'_0$ in the iteration kernel, $K(z',z)$. 
 
-$$
+$S(z'_0, z_0) = \frac{\delta\lambda}{\delta K(z'_0, z_0)} = \frac{v(z'_0)w(z_0)}{\langle v, w \rangle}$
 
-S(z'_0, z_0) = \frac{\delta\lambda}{\delta K(z'_0, z_0)} = \frac{v(z'_0)w(z_0)}{\langle v, w \rangle}
-
-$$
-
-The only piece of information we haven't already extracted from our IPM is the $dz$ term, which is required to compute the denominator. We can extract that using the `int_mesh()` function like so:
+The only piece of information we have not already extracted from our IPM is the $dz$ term, which is required to compute the denominator. We can extract that using the `int_mesh()` function like so:
 
 ```{r echo = TRUE, eval = TRUE}
 
@@ -910,11 +936,10 @@ carp_sens <- sens(carpobrotus_observed_ipm_converged)
 
 The elasticity formula builds on sensitivity and computes the fractional change in $\lambda$ as a result of perturbations to $K(z',z)$ at $z_0, z'_0$. It is given by the formula:
 
-$$
-E(z'_0, z_0) = \frac{K(z'_0, z_0)}{\lambda}\frac{\delta \lambda}{\delta K(z'_0, z_0)} \\
+$E(z'_0, z_0) = \frac{K(z'_0, z_0)}{\lambda}\frac{\delta \lambda}{\delta K(z'_0, z_0)}$ 
 
-= \frac{K(z'_0,z_0)}{\lambda}S(z'_0,z_0)
-$$
+$E(z'_0, z_0) = \frac{K(z'_0,z_0)}{\lambda}S(z'_0,z_0)$
+
 
 Earlier in the tutorial, we said that `ipmr` does not produce iteration kernels. This is only partially true - by default, `make_ipm()` doesn't use them for model iteration. However, the `make_iter_kernel()` function is exported from the package so that you can quickly extract one. For simple IPMs, there are no additional arguments - the function assumes all sub-kernels combine additively (i.e. $K(z',z) = P(z',z) + F(z',z) + ...$). 
 
@@ -1046,13 +1071,13 @@ These are raw expressions, not text strings. If we wanted to, for example, pertu
 
 ```{r echo = TRUE, eval = FALSE}
 
-vital_rate_exprs(use_proto, kernel = "P", "s") <- new_fun_form(plogis(alpha_s + beta_s * z_1) + pert)
+vital_rate_exprs(base_proto, kernel = "P", "s") <- new_fun_form(plogis(alpha_s + beta_s * z_1) + pert)
 
 ```
 
 This is great for interactive use, but it would be better to have something we can program with. That way, we do not have to re-type this for each vital rate. Below is a function that will programatically append the perturbation term. It uses `parse_expr` from `rlang`  instead of `base::parse`, as the latter does not quite produce the format we need.
 
-```{r echo = TRUE, eval = FALSE}
+```{r echo = TRUE, eval = TRUE}
 
 library(rlang)
 
@@ -1070,7 +1095,7 @@ append_pert(vr_exprs$mu_G, "sens")
 
 The final piece of the puzzle is to select the perturbation magnitude, and add it as a parameter to our data list so that `make_ipm()` can find it when goes to build the model. We will use a very small magnitude for sensitivity and elasticity. 
 
-```{r echo = TRUE, eval = TRUE}
+```{r echo = TRUE, eval = FALSE}
 
 parameters(base_proto) <- list(pert = 0.0001)
 
@@ -1135,9 +1160,11 @@ s_sens <- sens_vr(base_proto, "s", vr_exprs, 0.0001, current_lambda)
 
 ```
 
-We will now create a `data.frame` to store the results for all of the vital rates, loop over them, and plot the results. 
+We will now create a `data.frame` to store the results for all of the vital rates, loop over them, and plot the results. We'll exclude $G(z', z)$ since it is more of a sub-kernel than a vital rate.
 
 ```{r echo = TRUE, eval = TRUE}
+
+vr_exprs$G <- NULL
 
 all_sens <- data.frame(vr = names(vr_exprs),
                        value = NA)
@@ -1157,7 +1184,7 @@ barplot(all_sens$value, names.arg = all_sens$vr)
 
 ```
 
-It seems that this iceplant population is very sensitive to growth. Looking at the plots above the kernel sensitivity surface, this makes sense given the kernel-level results. However, these transitions are also biologically unrealistic - ice plant cannot grow *that* fast!
+It seems that this iceplant population is very sensitive to survival, growth, and initial size. Looking at the plots above the kernel sensitivity surface, this makes sense given the kernel-level results. However, these transitions are also biologically unrealistic - ice plant cannot grow *that* fast!
 
 ### Elasticity of vital rates
 
@@ -1235,11 +1262,11 @@ barplot(all_elas$value, names.arg = all_elas$vr)
 
 ```
 
-This fits with our interpretation from above - survival and growth make far greater contributions to $\lambda$ than reproduction! Our next exercise will be more interactive, and will look at how to compute a variety of life history traits.
+This fits with our interpretation from above - survival and growth make far greater contributions to $\lambda$ than reproduction! Note that since we are no longer working with kernel-level elasticities, we should not expect these to sum to 1. Our next exercise will be more interactive, and will look at how to compute a variety of life history traits.
 
 ### Additional demographic analyses
 
-This section will walk through how to compute a variety of demographic quantities. It includes how to compute:
+This section will walk through how to compute a variety of demographic quantities. We will also switch to operator notation, which excludes the $z$ and $z'$s from the variables. This makes things a bit more compact. It includes how to compute:
 
 1. Probability of survival to age $a$ conditional on initial size $z_0$.
 
@@ -1253,7 +1280,7 @@ This section will walk through how to compute a variety of demographic quantitie
 
 3. Mean size at death conditional on initial size $z_0$
 
-  + $\bar\omega(z_0) = (i \circ (1 - s))N$ 
+    + $\bar\omega(z_0) = (i \circ (1 - s))N$ 
 
 4. Per-generation population growth rate.
     
@@ -1285,7 +1312,7 @@ P <- carpobrotus_observed_ipm_converged$sub_kernels$P
 
 ```
 
-### Exercise: the probability of surviving to age a
+### Exercise: the probability of surviving to age *a*
 
 Compute the probability of surviving to ages 1-10. Think about how you might visualize this result.
 
@@ -1301,6 +1328,7 @@ for(i in seq_len(____)) {
 
 
 # How might we plot this?
+
 
 ```
 
@@ -1414,6 +1442,10 @@ sigma_eta_z0 <- colSums(2 * (N %^% 2) - N) - (colSums(N)) ^ 2
 
 ### Mean size at death
 
+The formula for this quantity is:
+
+  + $\bar\omega(z_0) = (i \circ (1 - s))N$ 
+  
 This requires us to extract the actual vital rate function from our model, rather than the expression. `ipmr` provides a helper for this - `vital_rate_funs()`. This extracts the vital rate values from a model object and returns them in a list. 
 
 ```{r eval = TRUE, echo = TRUE}
@@ -1469,12 +1501,74 @@ omega_bar_z0 <- (i_z * (1 - s)) %*% N
 
 # How might we visualize this?
 
-plot(omega_bar_z0, type = 'l', xlab = "size", ylab = "size at death")
+plot(as.vector(omega_bar_z0), type = 'l', xlab = "size", ylab = "size at death")
 
 ```
 
-### $R_0$
+### Exercise: $R_0$
 
+Computing $R_0$ requires multiplying to the fecundity kernel by the fundamental operator. This multiplication projects the population forward by a generation, rather than a single time step. Since we have already computed the fundamental operator $N$, all we need to do is get the fecundity kernel out of our IPM object, perform the multiplication, and then compute the dominant eigenvalue. 
+
+```{r r-0-exercise, exercise = TRUE}
+
+F <- ____
+
+R <- ____
+
+R_0 <- Re(eigen(R)$values[1])
+
+```
+
+```{r r-0-exercise-hint-1}
+
+F <- carpobrotus_observed_ipm_converged$sub_kernels$F
+
+R <- ____
+
+R_0 <- Re(eigen(R)$values[1])
+
+```
+
+```{r r-0-exercise-solution}
+
+F <- carpobrotus_observed_ipm_converged$sub_kernels$F
+
+R <- F %*% N
+
+R_0 <- Re(eigen(R)$values[1])
+
+```
+
+```{r echo = FALSE, eval = TRUE}
+
+F <- carpobrotus_observed_ipm_converged$sub_kernels$F
+
+R <- F %*% N
+
+```
 
 ### Lifetime reproductive output
 
+The final quantity we'll compute is expected lifetime reproductive output given an initial size $z_0$. This computed as:
+  
+  + $\bar r(z_0) = eFN$
+
+Recalling that the left multiplication by $e$ is equivalent to summing the columns, we just need to use $F$ and $N$, which we've already computed in prior exercises. After computing $\bar r(z_0)$, plot the result.
+
+```{r lro-exercise, exercise = TRUE}
+
+r_bar <- colsums(____) %*% ____
+
+```
+
+```{r lro-exercise-solution}
+
+r_bar <- colSums(F) %*% N 
+
+plot(as.vector(r_bar), type = 'l')
+
+```
+
+### Conclusion
+
+Next, we will get into how to create general IPMs using a data set on the plant species *Lupinus tidestromii*. These are also real data, collected from multiple sites in California!

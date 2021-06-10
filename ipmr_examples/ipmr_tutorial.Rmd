@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ## Overview
 
-Welcome to the `ipmr` workshop! This workshop will teach you the basics of how to use `ipmr` to implement Integral Projection Models (IPM), as well as how to work with model objects to complete further analyses. Our first example will use real data to investigate optimal management strategies for an invasive population *Carpobrotus* species (iceplant) in Israel. We will also derive some life history traits, such as per-generation growth rates ($R_0$) and generation time ($T$).
+Welcome to the `ipmr` workshop! This workshop will teach you the basics of how to use `ipmr` to implement Integral Projection Models (IPM), as well as how to work with model objects to complete further analyses. Our first example will use real data to investigate optimal management strategies for an invasive population *Carpobrotus* species (iceplant) in Israel. We will also walk through a few additional analyses, and how to use helper functions from `ipmr` to compute them.
 
 Next, we will use a data set for an endangered *Lupine* species from California to demonstrate how to model populations structured by a mixture of discrete and continuous traits. 
 
