@@ -3,3 +3,25 @@
 *Lupinus tidestromii* is an endangered plant species endemic the California coastal region. 
 
 
+```{r echo = FALSE}
+
+library(DiagrammeR)
+
+mermaid("
+  graph LR 
+  
+  A --> B
+  B --> C
+  C --> C
+  C --> A
+  C --> B
+
+  
+  A((Seedbank 2))
+  B((Seedbank 1))
+  C((Plants))
+ 
+        
+")
+
+```
