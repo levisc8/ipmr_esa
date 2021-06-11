@@ -1,27 +1,98 @@
 ### Lupine IPM
 
-*Lupinus tidestromii* is an endangered plant species endemic the California coastal region. 
+*Lupinus tidestromii* is an endangered plant species endemic the California coast. This set of exercises will use data collected from 6 populations in Point Reyes National Seashore (coordinates: 33.112, -122.9579) between 2008 and 2017.  This data set contains 13709 observations 6429 plants. This is a subset of data used in [Compagnoni et al. 2021](https://doi.org/10.1002/ecs2.3454), and we are going to create a simplified version of the IPM that appears in that publication. It contains individual level measurements of:
 
+1. log-transformed surface area ($z,z'$, `z_1, z_2`, `log_area_t0`, `log_area_t_1`)
+
+2. survival ($s$, `s`, `surv_t_1`)
+
+3. whether or not a plant is reproductive ($r_p$, `r_p`, `flow_t0`)
+
+4. seed counts ($r_n$, `r_n`, `seeds`).
+
+In addition to survival, growth, and reproduction, data were also collected on seed bank dynamics. The seed bank is structured such that seeds may persist for up to two if they do not germinate immediately. After two years, they are assumed to be dead. The addition of this age structured seed bank adds two discrete states to our size structured model: age 1 seeds, and age 2 seeds. The parameters associated with germination are:
+
+1. $g_0$/`g_0`: 0.02465088,
+
+2. $g_1$/`g_1`: 0.01433191,
+
+3. $g_2$/`g_2`: 0.0005732764
+
+We'll read in the data and have a look at it:
+
+```{r echo = TRUE, eval = TRUE}
+library(ipmr)
+
+lupi_df <- read.csv("../data/lupine.csv")
+
+str(lupi_df)
+
+```
+
+### Drawing the life cycle graph
+
+As before, we'll want to draw the lifecycle diagram and label the edges with vital rates. We now have three different states: Plants, age 1 seeds, and age 2 seeds.
 
 ```{r echo = FALSE}
 
 library(DiagrammeR)
 
-mermaid("
-  graph LR 
+grViz("
+  digraph {
   
-  A --> B
-  B --> C
-  C --> C
-  C --> A
-  C --> B
-
+  graph [overlap = true, fontsize = 12]
   
-  A((Seedbank 2))
-  B((Seedbank 1))
-  C((Plants))
- 
+  rank2 [style = invisible];
+  
+  edge [color = black, pendwidth = 2]
+  
+  node [shape    = circle,
+        fontname = Helvetica,
+        nodesep  = 2.0]
+  Plants
+  Seedbank_1
+  Seedbank_2
+  
+  Plants -> Plants [label = '    s * g + r_p * r_n * r_d * g_0']
+  Plants -> Seedbank_2 [xlabel = 'r_p * r_n * g_2']
+  Plants -> Seedbank_1 [label = 'r_p * r_n * g_1']
+  Seedbank_2 -> Seedbank_1 [label = '1']
+  Seedbank_1 -> Plants [label = 'r_d']
+    
+  {rank=same; 
+  rank2 -> Seedbank_2 -> Seedbank_1 -> Plants [style = invis];
+  rankdir = LR
+  }  
+  }    
         
 ")
 
 ```
+
+
+The next step will be to plot our data and see if continuous measures of log-transformed surface are a good predictor of vital rates.
+
+### Visualizing data
+
+For the purposes of visualization, we'll pool all years and sites. 
+
+```{r echo = TRUE, eval = TRUE}
+
+par(mfrow = c(2, 2))
+
+plot(jitter(surv_t1, amount = 0.05) ~ log_area_t0, 
+     data = lupi_df, main = "Survival",
+     xlab = "Size (t)", ylab = "Survival (t + 1)")
+
+plot(log_area_t1 ~ log_area_t0, data = lupi_df, 
+     main = "Growth", xlab = "Size (t)", ylab = "Size (t + 1)")
+
+plot(jitter(flow_t0, amount = 0.05) ~ log_area_t0, data = lupi_df,
+     main = "Pr(Flowering)", xlab = "Size (t)", ylab = "Flowering (t)")
+
+
+plot(seeds ~ log_area_t0, data = lupi_df,
+     main = "Seed Production", xlab = "Size (t)", ylab = "# of Flowers")
+```
+It's somewhat hard to tell if survival is affected by size with so many data points, but we can see that all other vital rates clearly have a positive relationship with size. Therefore, we'll include a survival model with a size term as well. 
+### Vital rate modeling

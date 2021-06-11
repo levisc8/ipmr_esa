@@ -4,51 +4,54 @@ library(lme4)
 library(dplyr)
 
 # # Create a cleaner lupine data set for this tutorial
-# 
-# data <- read.csv("ipmr_examples/data/lupine_all.csv") %>%
-#   select(location, year,
-#          log_area_t0, 
-#          flow_t0, 
-#          numrac_t0, 
-#          surv_t1, 
-#          log_area_t1,
-#          numrac_t0,
-#          numab_t0) %>%
-#   mutate(location = trimws(gsub("\\([0-9]\\)", "", location)))
-# 
-# seed <- read.csv("ipmr_examples/data/seedsperfruit.csv")
-# fruit <- read.csv("ipmr_examples/data/fruits_per_raceme.csv")
-# cons <- read.csv("ipmr_examples/data/consumption.csv") %>%
-#   group_by(Site) %>%
-#   summarise(mean_cons = mean(Mean_consumption, na.rm = TRUE)) %>%
-#   mutate(Site = toupper(Site))
-# 
-# abor <- data %>% 
-#   group_by(location) %>%
-#   summarise(mean_abs = mean(numab_t0 / numrac_t0, na.rm = TRUE))
-# 
-# data <- left_join(data, cons, by = c("location" = "Site"))
-# data <- left_join(data, abor, by = "location")
-# 
-# mean_fruit <- mean(fruit$NumFruits)
-# mean_seed  <- mean(seed$SEEDSPERFRUIT)
-# 
-# 
-# data <- mutate(data, 
-#                seeds = round((numrac_t0 * mean_cons * mean_abs) * mean_fruit * mean_seed)) %>%
-#   group_by(location) %>%
-#   slice_sample(prop = 0.6)
-# 
-# write.csv(data,
-#           file = "ipmr_examples/data/lupine.csv",
-#           row.names = FALSE)
 
-# germ <- read.csv("ipmr_examples/data/seedbaskets.csv") %>%
-#   select(g0:g2) %>%
-#   summarise(g_0 = mean(g0),
-#             g_1 = mean(g1),
-#             g_2 = mean(g2)) %>%
-#   apply(2, FUN = function(x) x * 0.1)
+data <- read.csv("../learnr_ex/lupine_all.csv") %>%
+  select(location, year, newid,
+         log_area_t0,
+         flow_t0,
+         numrac_t0,
+         surv_t1,
+         log_area_t1,
+         numrac_t0,
+         numab_t0) %>%
+  mutate(location = trimws(gsub("\\([0-9]\\)", "", location))) %>%
+  filter(year > 2007)
+
+seed <- read.csv("../learnr_ex/seedsperfruit.csv")
+fruit <- read.csv("../learnr_ex/fruits_per_raceme.csv")
+cons <- read.csv("../learnr_ex/consumption.csv") %>%
+  group_by(Site) %>%
+  summarise(mean_cons = mean(Mean_consumption, na.rm = TRUE)) %>%
+  mutate(Site = toupper(Site))
+
+abor <- data %>%
+  group_by(location) %>%
+  summarise(mean_abs = mean(numab_t0 / numrac_t0, na.rm = TRUE))
+
+data <- left_join(data, cons, by = c("location" = "Site"))
+data <- left_join(data, abor, by = "location")
+
+mean_fruit <- mean(fruit$NumFruits)
+mean_seed  <- mean(seed$SEEDSPERFRUIT)
+
+
+data <- mutate(data,
+               seeds = round((numrac_t0 * mean_cons * mean_abs) * mean_fruit * mean_seed)) %>%
+  group_by(location) %>%
+  slice_sample(prop = 0.6) %>%
+  ungroup() %>%
+  select(-c(numrac_t0, numab_t0:mean_abs))
+
+write.csv(data,
+          file = "ipmr_examples/data/lupine.csv",
+          row.names = FALSE)
+
+germ <- read.csv("../learnr_ex/seedbaskets.csv") %>%
+  select(g0:g2) %>%
+  summarise(g_0 = mean(g0),
+            g_1 = mean(g1),
+            g_2 = mean(g2)) %>%
+  apply(2, FUN = function(x) x * 0.1)
 
 data <- read.csv("ipmr_examples/data/lupine.csv")
 
@@ -121,6 +124,8 @@ data_list <- c(
   r_n_pars, r_n_yr_pars, r_n_pl_pars,
   germ_pars, sdl_size_pars
 )
+
+saveRDS(data_list, file = "ipmr_examples/data/lupine_pars.RDS")
 
 par_set_inds <- list(yr = rownames(ranef(surv_mod)$year),
                      site = rownames(ranef(surv_mod)$location))
