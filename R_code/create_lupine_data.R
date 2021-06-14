@@ -5,46 +5,46 @@ library(dplyr)
 
 # # Create a cleaner lupine data set for this tutorial
 
-data <- read.csv("../learnr_ex/lupine_all.csv") %>%
-  select(location, year, newid,
-         log_area_t0,
-         flow_t0,
-         numrac_t0,
-         surv_t1,
-         log_area_t1,
-         numrac_t0,
-         numab_t0) %>%
-  mutate(location = trimws(gsub("\\([0-9]\\)", "", location))) %>%
-  filter(year > 2007)
-
-seed <- read.csv("../learnr_ex/seedsperfruit.csv")
-fruit <- read.csv("../learnr_ex/fruits_per_raceme.csv")
-cons <- read.csv("../learnr_ex/consumption.csv") %>%
-  group_by(Site) %>%
-  summarise(mean_cons = mean(Mean_consumption, na.rm = TRUE)) %>%
-  mutate(Site = toupper(Site))
-
-abor <- data %>%
-  group_by(location) %>%
-  summarise(mean_abs = mean(numab_t0 / numrac_t0, na.rm = TRUE))
-
-data <- left_join(data, cons, by = c("location" = "Site"))
-data <- left_join(data, abor, by = "location")
-
-mean_fruit <- mean(fruit$NumFruits)
-mean_seed  <- mean(seed$SEEDSPERFRUIT)
-
-
-data <- mutate(data,
-               seeds = round((numrac_t0 * mean_cons * mean_abs) * mean_fruit * mean_seed)) %>%
-  group_by(location) %>%
-  slice_sample(prop = 0.6) %>%
-  ungroup() %>%
-  select(-c(numrac_t0, numab_t0:mean_abs))
-
-write.csv(data,
-          file = "ipmr_examples/data/lupine.csv",
-          row.names = FALSE)
+# data <- read.csv("../learnr_ex/lupine_all.csv") %>%
+#   select(location, year, newid,
+#          log_area_t0,
+#          flow_t0,
+#          numrac_t0,
+#          surv_t1,
+#          log_area_t1,
+#          numrac_t0,
+#          numab_t0) %>%
+#   mutate(location = trimws(gsub("\\([0-9]\\)", "", location))) %>%
+#   filter(year > 2007)
+# 
+# seed <- read.csv("../learnr_ex/seedsperfruit.csv")
+# fruit <- read.csv("../learnr_ex/fruits_per_raceme.csv")
+# cons <- read.csv("../learnr_ex/consumption.csv") %>%
+#   group_by(Site) %>%
+#   summarise(mean_cons = mean(Mean_consumption, na.rm = TRUE)) %>%
+#   mutate(Site = toupper(Site))
+# 
+# abor <- data %>%
+#   group_by(location) %>%
+#   summarise(mean_abs = mean(numab_t0 / numrac_t0, na.rm = TRUE))
+# 
+# data <- left_join(data, cons, by = c("location" = "Site"))
+# data <- left_join(data, abor, by = "location")
+# 
+# mean_fruit <- mean(fruit$NumFruits)
+# mean_seed  <- mean(seed$SEEDSPERFRUIT)
+# 
+# 
+# data <- mutate(data,
+#                seeds = round((numrac_t0 * mean_cons * mean_abs) * mean_fruit * mean_seed)) %>%
+#   group_by(location) %>%
+#   slice_sample(prop = 0.6) %>%
+#   ungroup() %>%
+#   select(-c(numrac_t0, numab_t0:mean_abs))
+# 
+# write.csv(data,
+#           file = "ipmr_examples/data/lupine.csv",
+#           row.names = FALSE)
 
 germ <- read.csv("../learnr_ex/seedbaskets.csv") %>%
   select(g0:g2) %>%
@@ -72,6 +72,12 @@ seed_mod <- glmer(seeds ~ log_area_t0 + (1 | location) + (1 | year),
                   data = data,
                   family = poisson())
 
+mod_list <- list(surv = surv_mod,
+                 grow = grow_mod,
+                 repr = repr_mod,
+                 seed = seed_mod)
+
+saveRDS(mod_list, file = "ipmr_examples/data/lupine_regression_models.rds")
 
 # Coefficients into parameter list
 
