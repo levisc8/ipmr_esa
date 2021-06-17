@@ -1,12 +1,22 @@
 ## Materials for ESA '21 ipmr Workshop
 
-This repository hosts the slides and tutorials for the `ipmr` workshop from ESA 2021. Tutorials are stored in `ipmr_examples/` subfolder. To run
+This repository hosts the slides and tutorials for the `ipmr` workshop from ESA 2021. Tutorials are stored in `ipmr_examples/` subfolder. To run with RStudio:
 
-1. clone this repository into a folder on your computer and open `ipmr_esa.Rproj`. 
+1. clone this repository into a folder on your computer. 
+  
+    + The easiest way is to click the green "Code" button in the upper right corner of this page and download a Zip file. Unzip the folder after downloading.
 
-2. Open `ipmr_examples/ipmr_tutorial.rmd`. 
+2. Open `ipmr_esa.Rproj`.
 
-3. In RStudio, you can simply click the `Run Document` button above the script pane. To run from the command line in an R session, run `rmarkdown::run("ipmr_examples/ipmr_tutorial.rmd")`.
+3. Open `ipmr_examples/ipmr_tutorial.rmd`. 
+
+4. Click the `Run Document` button above the script pane.
+
+To run from the R GUI, follow step 1 from above, then: 
+
+2. Set your working directory to the path where the unzipped repository is.
+
+3. Run `rmarkdown::run("ipmr_examples/ipmr_tutorial.rmd")`.
 
 ## Prerequisites
 
