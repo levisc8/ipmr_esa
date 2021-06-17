@@ -25,8 +25,18 @@ In order to get the most out of this tutorial, you will need to be familiar with
 You will also need to install the following R packages:
 
 ```
-install.packages(c("ipmr", "DiagrammeR","learnr", "lme4", "rlang", "MASS"))
+install.packages(c("DiagrammeR","learnr", "lme4", "rlang", "MASS"))
 
+```
+
+This tutorial makes use of the development version of `ipmr`. Thus, you'll also need to install that:
+
+```
+if(!requireNamespace("remotes")) {
+  install.packages("remotes")
+}
+
+remotes::install_github("levisc8/ipmr")
 ```
 
 
