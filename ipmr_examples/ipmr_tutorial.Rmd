@@ -7,7 +7,7 @@ output:
     highlight: pygments
 runtime: shiny_prerendered
 tutorial:
-  version: 0.0.0.2
+  version: 0.0.0.3
 ---
 
 
@@ -23,7 +23,7 @@ Welcome to the `ipmr` workshop! This workshop will teach you the basics of how t
 
 Next, we will use a data set for an endangered *Lupine* species from California to demonstrate how to model populations structured by a mixture of discrete and continuous traits. 
 
-This tutorial contains demonstrations of some newer features in `ipmr`, and therefore makes use of the development version of the package. We will also use a couple functions from `rlang`. If you haven't already installed them, please run the following chunk:
+This tutorial contains demonstrations of some newer features in `ipmr`, and therefore makes use of the development version of the package. If you have not already installed this, please run the following chunk:
 
 ```{r echo = TRUE, eval = FALSE}
 
@@ -41,7 +41,7 @@ remotes::install_github("levisc8/ipmr")
 
 **Package website**
 
-The project website is https://levisc8.github.io/ipmr. This website contains all of the help files for the package's functions, as well as a number of longer articles on how to implement models.
+The project website is https://levisc8.github.io/ipmr. This website contains all of the help files for the package functions, as well as a number of longer articles on how to implement models.
 
 **Bug reports**
 
@@ -59,18 +59,16 @@ Sam: <levisc8@gmail.com>/<sam.levin@idiv.de>
 
 This tutorial will make extensive use of exercises that use mathematical notation of IPMs to demonstrate how `ipmr` works with these models. This slide is a quick guide for the notation convention
 
-### Traits, kernels and functions
+#### Traits, kernels and functions
 
   - Population trait distributions, such as size, weight, height, or color will be denoted $n(z,t)$ and $n(z',t+1)$. These are the trait distributions for trait $z$ at time $t$ and $z'$ at time $t+1$, respectively.
   
-  - Bivariate kernels (i.e. kernels that are functions of $z$ and $z'$) will be capitalized and have at least two arguments (e.g. $P(z',z)$, $K(z',z, \theta)$). These may contain subscripts to denote parameter set indices (e.g. $P_{yr}(z',z)$).
+  - Bivariate kernels (*i.e.* kernels that are functions of $z$ and $z'$) will be capitalized and have at least two arguments (*e.g.* $P(z',z)$, $K(z',z)$). These may contain subscripts to denote parameter set indices (*e.g.* $P_{yr}(z',z)$).
   
-  - Univariate functions (i.e. a regression model `survival ~ size`) will be lower case functions and have at least 1 argument (e.g. $Logit(s(z))$, or $Log(r_n(z, \theta))$). These may contain subscripts to denote parameter set indices (e.g. $Logit(r_{p,yr}(z))$).
+  - Univariate functions (*i.e.* a regression model `survival ~ size`) will be lower case functions and have at least 1 argument (*e.g.* $Logit(s(z))$, or $Log(r_n(z))$). These may contain subscripts to denote parameter set indices (*e.g.* $Logit(r_{p,yr}(z))$).
   
-  - Constant demographic parameters will be lower case and not be a function of anything (e.g. $r_g$). These may contain subscripts to denote parameter set indices (e.g. $r_{g,site}$).
-  
-  - Environmental parameters will be denoted $\theta$. These may contain subscripts to denote subsets of the parameter vector (e.g. $\theta_t$ for temperature).
- 
+  - Constant demographic parameters will be lower case and not be a function of anything (*e.g.* $r_g$). These may contain subscripts to denote parameter set indices (*e.g.* $r_{g,site}$).
+
 ## Iceplant IPM
 
 ```{r, child = 'sub-pages/iceplant_study.rmd'}

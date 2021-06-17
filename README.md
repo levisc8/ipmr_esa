@@ -15,7 +15,7 @@ In order to get the most out of this tutorial, you will need to be familiar with
 You will also need to install the following R packages:
 
 ```
-install.packages(c("ipmr", "DiagrammeR","learnr", "lme4", "MASS", "ggplot2"))
+install.packages(c("ipmr", "DiagrammeR","learnr", "lme4", "rlang", "MASS"))
 
 ```
 

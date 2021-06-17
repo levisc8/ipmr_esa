@@ -1,6 +1,6 @@
 ### Lupine IPM
 
-*Lupinus tidestromii* is an endangered plant species endemic the California coast. This set of exercises will use data collected from 6 populations in Point Reyes National Seashore (coordinates: 33.112, -122.9579) between 2008 and 2017.  This data set contains 13709 observations 6429 plants. This is a subset of data used in [Compagnoni et al. 2021](https://doi.org/10.1002/ecs2.3454), and we are going to create a simplified version of the IPM that appears in that publication. It contains individual level measurements of:
+*Lupinus tidestromii* is an endangered plant species endemic the California coast. This set of exercises will use data collected from 7 populations in Point Reyes National Seashore (coordinates: 33.112, -122.9579) between 2008 and 2017.  This data set contains 13709 observations 6429 plants. This is a subset of data used in [Compagnoni et al. 2021](https://doi.org/10.1002/ecs2.3454), and we are going to create a simplified version of the IPM that appears in that publication. It contains individual level measurements of:
 
 1. log-transformed surface area ($z,z'$, `z_1, z_2`, `log_area_t0`, `log_area_t_1`)
 
@@ -74,9 +74,9 @@ The next step will be to plot our data and see if continuous measures of log-tra
 
 ### Visualizing data
 
-For the purposes of visualization, we'll pool all years and sites. 
+For the purposes of visualization, we'll pool all years and sites. However, we will include terms for population and year in our actual vital rate models.
 
-```{r echo = TRUE, eval = TRUE}
+```{r echo = TRUE, eval = TRUE, fig.height = 10, fig.width = 8}
 
 par(mfrow = c(2, 2))
 
@@ -94,5 +94,72 @@ plot(jitter(flow_t0, amount = 0.05) ~ log_area_t0, data = lupi_df,
 plot(seeds ~ log_area_t0, data = lupi_df,
      main = "Seed Production", xlab = "Size (t)", ylab = "# of Flowers")
 ```
-It's somewhat hard to tell if survival is affected by size with so many data points, but we can see that all other vital rates clearly have a positive relationship with size. Therefore, we'll include a survival model with a size term as well. 
+
+It is somewhat hard to tell if survival is affected by size with so many data points, but we can see that all other vital rates clearly have a positive relationship with size. Therefore, we will include a survival model with a size term as well. 
+
+### Re-writing the model
+
+We can now write out the IPM equations using our life cycle diagram and include terms for size, site, and year in our vital rate models. Our goal (for now) is to create a deterministic model for each site $\times$ year combination of parameters. We will index time- and space-varying kernels, vital rates, and parameters using subscripts. These subscripts will be important when writing the `ipmr` version of the model, so it is good to get in the habit of using them here as well. Sites will be indexed by $_i$ and years will be indexed by $j$. Our data set doesn't include time- or space-varying components in recruit size or germination rates, so those two vital rates will not get any indices. The equations for the model iteration are as follows:
+
+1. $n(z'_{i,j}, t+1) = B_{1_{i,j}}(t) * \int_L^Ur_d(z') + \int_L^U [P_{i,j}(z',z) + F_{i,j}(z',z)]n(z_{i,j},t) dz$
+
+2. $B_{1_{i,j}}(t+1) = g_1 * \int_L^U r_{p_{i,j}}(z)r_{n_{i,j}}(z)n(z_{i,j},t)dz + B_{2_{i,j}}(t)$
+
+3. $B_{2_{i,j}}(t+1) = g_2 * \int_L^U r_{p_{i,j}}(z)r_{n_{i,j}}(z)n(z_{i,j},t)dz$
+
+Next, we will write out the expressions for the $P(z',z)$ and $F(z',z)$ sub-kernels.
+
+4. $P_{i,j}(z',z) = s_{i,j}(z) * G_{i,j}(z',z)$
+
+5. $F_{i,j}(z',z) = r_{p_{i,j}}(z) * r_{n_{i,j}}(z) * r_d(z') * g_0$
+
+Next, we will write out the functional forms for each continuously varying vital rate. For the sake of brevity, we are going to use the same functional form for each vital rate - a slope term for size ($z$), and uncorrelated random intercepts for site and year. Normally, we would try out a variety of possible models and select the best one(s) via model selection (e.g. AIC, LOO-CV, model averaging).
+
+6. $logit(s_{i,j}(z)) = \alpha_{s_i} + \alpha_{s_j} + \beta_{s_z} * z$
+
+7. $G_{i,j}(z',z) = f_{G_{i,j}}(z', \mu_{G_{i,j}}(z), \sigma_G)$
+
+8. $\mu_{G_{i,j}}(z)) = \alpha_{G_i} + \alpha_{G_j} + \beta_{G_z} * z$
+
+9. $logit(r_{p_{i,j}}(z)) = \alpha_{r_{p_i}} + \alpha_{r_{p_j}} + \beta_{r_{p_z}} * z$
+
+10. $log(r_{n_{i,j}}(z)) = \alpha_{r_{n_i}} + \alpha_{r_{n_j}} + \beta_{r_{n_z}} * z$
+
+11. $r_d(z') = f_{r_d}(z', \mu_{r_d}, \sigma_{r_d})$
+
+$f_G$ and $f_{r_d}$ denote normal probability density functions. 
+
 ### Vital rate modeling
+
+The next step will be to actually fit our vital rate models. Each one is a regression using size as a fixed effect, and site and year as separate random effects. We'll change the link function using the `family()` argument in `glmer()` for $s$, $r_n$ and $r_p$. $G$ will use a different function, `lmer()`.
+
+```{r echo = TRUE, eval = TRUE}
+
+library(lme4)
+
+surv_mod <- glmer(surv_t1 ~ log_area_t0 + (1 | location) + (1 | location:year),
+                  data = lupi_df,
+                  family = binomial())
+
+grow_mod <- lmer(log_area_t1 ~ log_area_t0 + (1 | location) + (1 | year),
+                  data = lupi_df)
+
+repr_mod <- glmer(flow_t0 ~ log_area_t0 + (1 | location) + (1 | year),
+                  data = lupi_df,
+                  family = binomial())
+
+seed_mod <- glmer(seeds ~ log_area_t0 + (1 | location) + (1 | year),
+                  data = lupi_df,
+                  family = poisson())
+
+```
+
+As mentioned above, we are not going to do any model selection, as `ipmr` does not provide any tools to help with that anyway. We will assume that these are all the best models for our purposes and proceed with the next step, which is extracting parameter values and formatting their names correctly. 
+
+### Parameter sets in ipmr
+
+Since we want a deterministic models for each site $\times$ year combination, we'll use the conditional modes of each random effect to get a set of year and site specific parameters.
+
+### Life Table Response Experiments
+
+Yearly X Site LTREs!

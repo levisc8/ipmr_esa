@@ -129,7 +129,9 @@ The $F$ kernel is now re-written:
 
 7. $F(z', z) = r_p(z) * r_n(z) * r_d(z') * r_g,$
 
-8. $Logit(r_p(z)) = \alpha_{r_p} + \beta_{r_p} * z,$
+8. $Logit(r_p(z)) = \alpha_{r_p} + \beta_{r_p,1} * z + \beta_{r_p,2} * z^2,$
+
+    + NB: The rationale for the $\beta_{r_p,2} * z^2$ term will become apparent in the next section.
 
 9. $Log(r_n(z)) = \alpha_{r_n} + \beta_{r_n,1} * z + \beta_{r_n,2} * z^2,$
 
@@ -157,11 +159,11 @@ s_pars <- coef(s_2)
 
 ```
 
-The intercept-only model is clearly the worst performing. The model with a single fixed effect is slightly better than the quadratic one. In other circumstances, we might average these two models because their $\Delta AIC$ is pretty small. Here, for the sake of simplicity, we will just use the model with a single fixed effect. We store the coefficients from that model in the `s_pars` object.
+The intercept-only model is clearly the worst performing. The model with a single fixed effect is slightly better than the quadratic one. In other circumstances, we might average these two models because their $\Delta AIC$ is pretty small, and/or compare their results visually against a more flexible model (_e.g._ a Generalized Additive Model). Here, for the sake of simplicity, we will just use the model with a single fixed effect. We store the coefficients from that model in the `s_pars` object.
 
 Next, we will model growth:
 
-```{r, echo  = TRUE}
+```{r, echo  = TRUE, warning = FALSE}
 
 g_1 <- glm(log_size_next ~ 1, data = carp_df)
 g_2 <- glm(log_size_next ~ log_size, data = carp_df)
@@ -310,7 +312,7 @@ g_par_list <- setNames(as.list(g_pars),
                        c("alpha_G", "beta_G", "sigma_G"))
 
 r_p_par_list <- setNames(as.list(r_p_pars),
-                         c("alpha_r_p", "beta_r_p"))
+                         c("alpha_r_p", "beta_r_p_1", "beta_r_p_2"))
 
 r_n_par_list <- setNames(as.list(r_n_pars),
                          c("alpha_r_n", "beta_r_n_1", "beta_r_n_2"))
@@ -355,12 +357,20 @@ There are a two things that need highlighting here:
 
 2. We have added variables called `z_1` and `z_2`. These correspond to $z$ and $z'$ respectively. These are defined internally by the modeling functions - we do not need to define values for them in the `data_list`. 
 
-3. The names in the `data_list` are used to create expressions for the functional form of each vital rate (i.e. `s`, `G`, and `mu_G`). These correspond to Equations 2-4 above. 
+3. The names in the `data_list` are used to create expressions for the functional form of each vital rate (_i.e._ `s`, `G`, and `mu_G`). These correspond to Equations 4-6 above. 
 
 
 ### Exercise: defining the $F(z',z)$ kernel
 
 The next exercise will go through the steps of defining the expressions that comprise the $F(z',z)$ kernel. 
+
+7. $F(z', z) = r_p(z) * r_n(z) * r_d(z') * r_g,$
+
+8. $Logit(r_p(z)) = \alpha_{r_p} + \beta_{r_p,1} * z + \beta_{r_p,2} * z^2,$
+
+9. $Log(r_n(z)) = \alpha_{r_n} + \beta_{r_n,1} * z + \beta_{r_n,2} * z^2,$
+
+10. $r_d(z') = f_{r_d}(z', \mu_{r_d}, \sigma_{r_d})$. $f_{r_d}$ denotes a normal probability density function.
 
 ```{r, define_F-exericse, exercise = TRUE}
 
@@ -404,7 +414,7 @@ carpobrotus_ipm <- define_kernel(
   proto_ipm = carpobrotus_ipm,
   name      = "F",
   formula   = r_p * r_n * r_d * r_g,
-  r_p       = plogis(alpha_r_p + beta_r_p * z_1),
+  r_p       = plogis(alpha_r_p + beta_r_p_1 * z_1 + beta_r_p_2 * z_1^2),
   r_n       = exp(____),
   r_d       = dnorm(____),
   data_list = ____,
@@ -422,7 +432,7 @@ carpobrotus_ipm <- define_kernel(
   proto_ipm = carpobrotus_ipm,
   name      = "F",
   formula   = r_p * r_n * r_d * r_g,
-  r_p       = plogis(alpha_r_p + beta_r_p * z_1),
+  r_p       = plogis(alpha_r_p + beta_r_p_1 * z_1 + beta_r_p_2 * z_1^2),
   r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2),
   r_d       = dnorm(____),
   data_list = ____,
@@ -439,10 +449,10 @@ carpobrotus_ipm <- define_kernel(
 carpobrotus_ipm <- define_kernel(
   proto_ipm = carpobrotus_ipm,
   name      = "F",
-  formula   = r_p * r_n * r_d * r_g,                                  # Equation 7
-  r_p       = plogis(alpha_r_p + beta_r_p * z_1),                     # Equation 8
-  r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2), # Equation 9
-  r_d       = dnorm(z_2, mu_r_d, sigma_r_d),                          # Equation 10
+  formula   = r_p * r_n * r_d * r_g,                                   # Equation 7
+  r_p       = plogis(alpha_r_p + beta_r_p_1 * z_1 + beta_r_p_2 * z_1^2), # Equation 8
+  r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2),  # Equation 9
+  r_d       = dnorm(z_2, mu_r_d, sigma_r_d),                           # Equation 10
   data_list = all_pars,
   states    = list(c("z")),
   evict_cor = TRUE,
@@ -458,7 +468,7 @@ carpobrotus_ipm <- define_kernel(
   proto_ipm = carpobrotus_ipm,
   name      = "F",
   formula   = r_p * r_n * r_d * r_g,                                  # Equation 7
-  r_p       = plogis(alpha_r_p + beta_r_p * z_1),                     # Equation 8
+  r_p       = plogis(alpha_r_p + beta_r_p_1 * z_1 + beta_r_p_2 * z_1^2),
   r_n       = exp(alpha_r_n + beta_r_n_1 * z_1 + beta_r_n_2 * z_1^2), # Equation 9
   r_d       = dnorm(z_2, mu_r_d, sigma_r_d),                          # Equation 10
   data_list = all_pars,
@@ -471,7 +481,7 @@ carpobrotus_ipm <- define_kernel(
 
 ```
 
-we have now defined all the equations in our model. The next step is to tell `ipmr` how to numerically integrate them, and how they act on the trait distributions to produce new ones (i.e. how the model iterates itself).
+We have now defined all the equations in our model. The next step is to tell `ipmr` how to numerically integrate them, and how they act on the trait distributions to produce new ones (_i.e._ how the model iterates itself).
 
 ### Defining numerical implementation rules
 
@@ -487,9 +497,9 @@ The function that does this is called `define_impl()`. It takes two arguments: `
 
 1. `int_rule`: the integration rule to use. Currently, `"midpoint"` is the only option.
 
-2. `state_start`: the name of the trait that the kernel acts on. These correspond to `z_1`'s in the vital rate expressions for simple IPMs (with the `_1`'s removed). In Eq 1, this corresponds to $n(z, t)$ on the right hand side of the equals sign.
+2. `state_start`: the name of the trait that the kernel acts on. These correspond to `z_1` in the vital rate expressions for simple IPMs (with the `_1` suffix removed). In Eq 1, this corresponds to $n(z, t)$ on the right hand side of the equals sign.
 
-3. `state_end`: the name of the trait that the kernel produces. These correspond to `z_2`'s in the vital rate expressions for simple IPMs (with the `_1`'s removed). In Eq 1, this corresponds to $n(z',t+1)$ on the left hand side of the equals sign.
+3. `state_end`: the name of the trait that the kernel produces. These correspond to `z_2` in the vital rate expressions for simple IPMs (with the `_2` suffix removed). In Eq 1, this corresponds to $n(z',t+1)$ on the left hand side of the equals sign.
 
 Below is an example of the $P(z',z)$ part of the `kernel_impl_list` for the model we have defined above. Notice how the `P` list is nested within another list. 
 
@@ -608,7 +618,7 @@ m <- 100
 
 ```
 
-NB: We multiply the `L` value by 1.2 because it is negative, and we want to make it more negative (i.e. smaller). If it were a positive value, we would multiply it by 0.8.
+NB: We multiply the `L` value by 1.2 because it is negative, and we want to make it more negative (_i.e._ smaller). If it were a positive value, we would multiply it by 0.8.
 
 ### Exercise: define_domains()
 
@@ -656,9 +666,9 @@ The initial trait distribution is usually the last piece of information required
 
 1. `proto_ipm`: the object created by `init_ipm()`/`define_kernel()`/`define_impl()`/`define_domains()`. It is always used!
 
-2. `...`: These are named expressions. The name corresponds to the trait distribution with an `n_` prepended to it. For example, our IPM uses `z` to denote size, so we would name this `n_z`. The right hand side can be any _R_ code that produces a numeric vector with the appropriate length (i.e. the number of mesh points `m` used to integrate over this particular state. For discrete states, this will always be a single number). 
+2. `...`: These are named expressions. The name corresponds to the trait distribution with an `n_` prepended to it. For example, our IPM uses `z` to denote size, so we would name this `n_z`. The right hand side can be any _R_ code that produces a numeric vector with the appropriate length (_i.e._ the number of mesh points `m` used to integrate over this particular state. For discrete states, this will always be a single number). 
 
-3. `pop_vectors`: This can be a named list of pre-defined vectors with the same format as above. This would be useful for using an observed population trait distribution as the starting point for a simulation (`ipmr` provides a function `discretize_pop_vector()` to help compute this from raw data).
+3. `pop_vectors`: This can be a named list of pre-defined vectors with the same format as above. This would be useful for using an observed population trait distribution as the starting point for a simulation (`ipmr` provides the function `discretize_pop_vector()` to help compute this from raw data).
 
 We will define two models - one with the initial trait distribution, `log_size`, as the starting point for our simulation, and the other with a uniform vector, demonstrate how each of these options works. The chunk below demonstrates how to do both.
 
@@ -695,7 +705,7 @@ We are now ready to actually create an IPM object!
 
 2. `return_main_env`: this controls whether or to return the so-called `main_env` object. This holds the integration mesh, weights, upper and lower bounds, and some other odds and ends that are useful for certain analyses. This defaults to `TRUE`.
 
-3. `return_all_envs`: this controls whether to return all of the sub-kernel evaluation environments. These contain the vital rate function values, parameters, and a copy of the sub-kernels themselves. These are required for any downstream analyses that need vital rate function values! The default is `FALSE`, but we will set it to `TRUE` when we call `make_ipm()` in this tutorial.
+3. `return_all_envs`: this controls whether to return all of the sub-kernel evaluation environments. These contain the vital rate function values, parameters, and a copy of the sub-kernels themselves. These are required for any downstream analyses that need vital rate function values. The default is `FALSE`, but we will set it to `TRUE` when we call `make_ipm()` in this tutorial.
 
 4. `iterations`: this controls the number of iterations for the deterministic simulation. The default is 50, but we can bump that up if we have problems with convergence to asymptotic dynamics.
 
@@ -751,7 +761,7 @@ Next, we will run through some basic analyses that `ipmr` provides. After that, 
 
 #### Asymptotic dynamics
 
-`ipmr` provides the `lambda` function to extract the asymptotic per-capita population growth rate ($\lambda$). Since all values are computed via iteration, we probably want to check and make sure our simulation made it that stage before proceeding. There are two functions to help with this:
+`ipmr` provides the `lambda` function to extract the asymptotic per-capita population growth rate ($\lambda$). Since all values are computed via iteration, we probably want to check and make sure our simulation converged to asymptotic dynamcis before proceeding. There are two functions to help with this:
 
 1. `is_conv_to_asymptotic`: This checks whether the last two transitions produced similar single time step population growth rates. If so, it returns `TRUE`. Otherwise, it returns `FALSE`. The default tolerance is `1e-10`, which is pretty conservative. We can alter it with the `tol` argument.
 
@@ -834,7 +844,7 @@ plot(v_z$z_v, type = "l", main = "Reproductive Value")
 
 Simple analyses of asymptotic dynamics are rarely the final piece in using IPMs. `ipmr` does not contain additional higher level functions to compute, for example, sensitivity or life expectancy. However, it does contain a variety of helpers to extract and format the quantities you need to compute those from an IPM. This next section will introduce some of these helpers and show you how to use them to compute a few frequently used demographic quantities. 
 
-The first analysis we will run is computing sensitivity and elasticity. We will compute it at both the kernel level and the vital rate level. Lower level perturbations analyses (i.e. parameter level) are possible using slight modifications to the latter analysis.
+The first analysis we will run is computing sensitivity and elasticity. We will compute it at both the kernel level and the vital rate level. Lower level perturbations analyses (_i.e._ parameter level) are possible using slight modifications to the latter analysis.
 
 ### Sensitivity
 
@@ -936,12 +946,12 @@ carp_sens <- sens(carpobrotus_observed_ipm_converged)
 
 The elasticity formula builds on sensitivity and computes the fractional change in $\lambda$ as a result of perturbations to $K(z',z)$ at $z_0, z'_0$. It is given by the formula:
 
-$E(z'_0, z_0) = \frac{K(z'_0, z_0)}{\lambda}\frac{\delta \lambda}{\delta K(z'_0, z_0)}$ 
+$E(z'_0, z_0) = \frac{\delta \text{ log } \lambda}{\delta \text{ log } K(z'_0, z_0)} = \frac{K(z'_0, z_0)}{\lambda}\frac{\delta \lambda}{\delta K(z'_0, z_0)}$ 
 
 $E(z'_0, z_0) = \frac{K(z'_0,z_0)}{\lambda}S(z'_0,z_0)$
 
 
-Earlier in the tutorial, we said that `ipmr` does not produce iteration kernels. This is only partially true - by default, `make_ipm()` doesn't use them for model iteration. However, the `make_iter_kernel()` function is exported from the package so that you can quickly extract one. For simple IPMs, there are no additional arguments - the function assumes all sub-kernels combine additively (i.e. $K(z',z) = P(z',z) + F(z',z) + ...$). 
+Earlier in the tutorial, we said that `ipmr` does not produce iteration kernels. This is only partially true - by default, `make_ipm()` does not use them for model iteration. However, the `make_iter_kernel()` function is exported from the package so that you can quickly extract one. For simple IPMs, there are no additional arguments - the function assumes all sub-kernels combine additively (_i.e._ $K(z',z) = P(z',z) + F(z',z) + ...$). 
 
 ### Exercise: construct $K(z',z)$
 
@@ -1049,11 +1059,168 @@ $\lambda$ is very sensitive to moderately large individuals becoming very large.
 
 ### Lower level perturbations
 
-Many applications call for knowing the sensitivity and elasticity of $\lambda$ to a given vital rate, rather than arbitrary positions in the kernel. We could derive analytical formulae for these, and then proceed as above. However, we can compute these via a more brute force method that is just as quick, and perhaps a bit more intuitive. 
+Function value perturbations allow us to ask questions like *what happens if we tweak survival of size $z_0$ individuals?* or *what happens if we increase propagule number for the largest 5% of plants?* Function value perturbations are expensive to compute by brute force, but fortunately, analytical formulae exist to help us out. The general formula for sensitivity from above can also be written:
+
+1. $\frac{\delta \lambda(\epsilon)}{\delta \epsilon}\Bigg\rvert_{\epsilon = 0}  = \frac{\int \int v(z')C(z',z)w(z) dz' dz}{\int v(z)w(z) dz}$
+
+where $C(z',z)$ is a perturbation kernel, and $v$ and $w$ are the left and right eigenvectors, respectively. In general, a perturbation function $\delta_{z_0}(z)$ introduces a localized perturbation at size $z_0$. We will start with the example of perturbing survival for $z_0 \in [L, U]$. Recalling that 
+
+2. $K(z',z) = P(z',z) + F(z',z) = s(z)G(z',z) + r_p(z)r_n(z)r_d(z')r_g$,
+
+we want to know what happens to $\lambda$ when $s(z)$ is changed. We can write this as 
+
+3. $K(z',z) + \epsilon \delta_{z_0}(z)G(z',z)$. 
+
+This gives us the following perturbation kernel:
+
+4. $C(z',z) = \delta_{z_0}(z)G(z',z)$.
+
+Substituting Eq 4 into Eq 1, we get:
+
+5. $\frac{\delta \lambda}{\delta s(z_0)} = \frac{\int v(z')G(z',z_0)w(z_0)dz'}{\int v(z)w(z)dz}$
+
+This looks pretty nasty, but we can re-write is using operator notation, which excludes the $z$ and $z'$s from the variables. It looks like this:
+
+6. $\frac{(vG) \: \circ \: w}{\langle v,w \rangle}$.
+
+This still looks nasty, but we can parse it into more manageable language as follows: the change $\lambda$ induced by a small change in $s(z)$ near $z_0$ depends on the fraction of individuals of size $z_0$ that would be affected (given by $w$), their size after they grow (given by $G$), and their reproductive value after growth (given by $v$). This is scaled by the total reproductive value of the population (given by $\langle v,w \rangle$). 
+
+Once we have the sensitivity written out, we can also write out the elasticity. The equation for it from above becomes
+
+$\frac{\delta \text{ log } \lambda}{\delta \text{ log } s(z)} = \frac{s\: \circ \: vG \: \circ \: w}{\lambda \langle v,w \rangle}$
+
+Next, we will implement this using some helpers from `ipmr`. 
+
+### Sensitivity and elasticity code
+
+The next helper function that we will introduce is called `vital_rate_funs()`. It extracts the function values for each vital rate from an IPM object. We have already extracted the left and right eigenvectors for the sensitivity analysis above, so we are ready to proceed.
+
+NB: for simple IPMs `vital_rate_funs()` always returns an $m \times m$ function representing every value of the function for $z,z'$. These functions have not been integrated yet, so they can be used directly in the calculations of sensitivity and elasticity, but care must be taken when using them for other applications. 
+
+```{r echo = TRUE, eval = TRUE}
+
+vr_funs <- vital_rate_funs(carpobrotus_observed_ipm_converged)
+
+G   <- vr_funs$P$G
+s   <- vr_funs$P$s
+
+# Every row of the "s" object will be identical, because s is only a function
+# of z. Therefore, we take the first row to get its univariate form. 
+
+s   <- s[1, ]
+
+lambda <- lambda(carpobrotus_observed_ipm_converged)
+
+v_z <- left_ev(carpobrotus_observed_ipm_converged)$z_v
+w_z <- right_ev(carpobrotus_observed_ipm_converged)$z_w
+d_z <- int_mesh(carpobrotus_observed_ipm_converged)$d_z
+
+sens_s <- (left_mult(G, v_z) * w_z) / (sum(v_z * w_z * d_z))
+elas_s <- (s * left_mult(G, v_z) * w_z) / (lambda * sum(v_z * w_z * d_z))
+
+plot(sens_s, type = 'l')
+lines(1:100, elas_s, lty = 2)
+
+
+```
+
+### Exercise: sensitivity and elasticity 
+
+Given the above formulae for sensitivity and elasticity, try computing the sensitivity and elasticity of $\lambda$ to perturbations of $r_n(z)$ and $r_p(z)$. Hint: we will need both the univariate and bivariate forms of `r_p` and `r_n` for this analysis.
+
+```{r vr-sens-exercise, exercise = TRUE}
+
+r_p   <- vr_funs$F$r_p
+r_n   <- vr_funs$F$r_n   
+r_p_z <- vr_funs$F$r_p[1, ]
+r_n_z <- vr_funs$F$r_n[1, ]
+r_d   <- vr_funs$F$r_d
+r_g   <- all_pars$r_g
+
+sens_r_p <- _____
+elas_r_p <- _____
+
+sens_r_n <- _____
+elas_r_n <- _____
+
+# Vizualize the result
+
+```
+
+```{r vr-sens-exercise-hint-1}
+
+r_p   <- vr_funs$F$r_p
+r_n   <- vr_funs$F$r_n   
+r_p_z <- vr_funs$F$r_p[1, ]
+r_n_z <- vr_funs$F$r_n[1, ]
+r_d   <- vr_funs$F$r_d
+r_g   <- all_pars$r_g
+
+sens_r_p <- (left_mult(r_n * r_d, v_z) * w_z) / (sum(v_z * w_z * d_z))
+elas_r_p <- _____
+
+sens_r_n <- _____
+elas_r_n <- (r_n * left_mult(r_p * r_d, v_z) * w_z) / (lambda * sum(v_z * w_z * d_z))
+
+# Vizualize the result
+
+```
+
+```{r vr-sens-exercise-solution}
+
+r_p   <- vr_funs$F$r_p
+r_n   <- vr_funs$F$r_n   
+r_p_z <- vr_funs$F$r_p[1, ]
+r_n_z <- vr_funs$F$r_n[1, ]
+r_d   <- vr_funs$F$r_d
+r_g   <- all_pars$r_g
+
+sens_r_p <- (left_mult(r_n * r_d * r_g, v_z) * w_z) / (sum(v_z * w_z * d_z))
+elas_r_p <- (r_p_z * left_mult(r_n * r_d * r_g, v_z) * w_z) / (lambda * sum(v_z * w_z * d_z))
+
+sens_r_n <- (left_mult(r_p * r_d * r_g, v_z) * w_z) / (sum(v_z * w_z * d_z))
+elas_r_n <- (r_n_z * left_mult(r_p * r_d * r_g, v_z) * w_z) / (lambda * sum(v_z * w_z * d_z))
+
+par(mfrow = c(1, 2))
+plot(sens_r_p, type = "l", 
+     main = "Pr(flowering)",
+     ylab = "Sensitivity/Elasticity", ylim = c(0, 0.04))
+lines(1:100, elas_r_p, lty = 2)
+
+plot(sens_r_n, type = "l",
+     main = "# of Flowers",
+     ylab = "Sensitivity/Elasticity", ylim = c(0, 0.04))
+lines(1:100, elas_r_n, lty = 2)
+
+
+
+
+```
+
+```{r echo = FALSE, eval = TRUE}
+r_p   <- vr_funs$F$r_p
+r_n   <- vr_funs$F$r_n   
+r_p_z <- vr_funs$F$r_p[1, ]
+r_n_z <- vr_funs$F$r_n[1, ]
+r_d   <- vr_funs$F$r_d
+r_g   <- all_pars$r_g
+
+sens_r_p <- (left_mult(r_n * r_d * r_g, v_z) * w_z) / (sum(v_z * w_z * d_z))
+elas_r_p <- (r_p_z * left_mult(r_n * r_d * r_g, v_z) * w_z) / (lambda * sum(v_z * w_z * d_z))
+
+sens_r_n <- (left_mult(r_p * r_d * r_g, v_z) * w_z) / (sum(v_z * w_z * d_z))
+elas_r_n <- (r_n_z * left_mult(r_p * r_d * r_g, v_z) * w_z) / (lambda * sum(v_z * w_z * d_z))
+
+
+```
+
+### Brute force approach to perturbations
+
+Some applications many not call for knowing the sensitivity and elasticity of $\lambda$ to a given vital rate value, but rather how $\lambda$ responds to perturbations the whole function (_i.e._ what happens if we just add 0.0001 to the intercept). We could derive analytical formulae for these, and then proceed as above. However, we can compute these via a more brute force method that is just as quick, and perhaps a bit more intuitive. 
 
 Sensitivity quantifies the absolute change in $\lambda$ as a result of a small change in some vital rate. Therefore, we can manually perturb the vital rates using the `vital_rate_exprs()` function from `ipmr`, and then rebuild the IPM for each vital rate. We can also do this for elasticity. 
 
-#### Vital rate perturbation sensitivity
+### Manually compute an intercept sensitivity
 
 We will start by extracting the vital rate expressions for the model and having a peak at them so that we can get a feel for how `ipmr` handles these. Since we are going to rebuild the model, we also want to pull out the `proto_ipm` object so that we modify that each time. It is stored in the `ipm$proto_ipm` slot of the IPM object. Once we are familiar with them, we can start our perturbing.
 
@@ -1067,7 +1234,7 @@ print(vr_exprs)
 
 ```
 
-These are raw expressions, not text strings. If we wanted to, for example, perturb the survival function, we would need to use the following syntax:
+These are raw expressions, not text strings. If we wanted to, for example, perturb the survival function, we could use the following code:
 
 ```{r echo = TRUE, eval = FALSE}
 
@@ -1093,7 +1260,7 @@ append_pert(vr_exprs$mu_G, "sens")
 
 ```
 
-The final piece of the puzzle is to select the perturbation magnitude, and add it as a parameter to our data list so that `make_ipm()` can find it when goes to build the model. We will use a very small magnitude for sensitivity and elasticity. 
+The next piece of the puzzle is to select the perturbation magnitude, and add it as a parameter to our data list so that `make_ipm()` can find it when goes to build the model. We will use a very small magnitude for sensitivity. 
 
 ```{r echo = TRUE, eval = FALSE}
 
@@ -1160,11 +1327,11 @@ s_sens <- sens_vr(base_proto, "s", vr_exprs, 0.0001, current_lambda)
 
 ```
 
-We will now create a `data.frame` to store the results for all of the vital rates, loop over them, and plot the results. We'll exclude $G(z', z)$ since it is more of a sub-kernel than a vital rate.
+We will now create a `data.frame` to store the results for all of the vital rates, loop over them, and plot the results. We will exclude $G(z', z)$ and $r_d(z')$ for this example.
 
 ```{r echo = TRUE, eval = TRUE}
 
-vr_exprs$G <- NULL
+vr_exprs$G <- vr_exprs$r_d <- NULL
 
 all_sens <- data.frame(vr = names(vr_exprs),
                        value = NA)
@@ -1184,11 +1351,11 @@ barplot(all_sens$value, names.arg = all_sens$vr)
 
 ```
 
-It seems that this iceplant population is very sensitive to survival, growth, and initial size. Looking at the plots above the kernel sensitivity surface, this makes sense given the kernel-level results. However, these transitions are also biologically unrealistic - ice plant cannot grow *that* fast!
+It seems that this iceplant population is very sensitive to survival and growth. Looking at the plots above the kernel sensitivity surface, this makes sense given the kernel-level results. However, these transitions are also biologically unrealistic - ice plant cannot grow *that* fast!
 
 ### Elasticity of vital rates
 
-We can modify the `sens_vr` function slightly to compute elasticity as well. This quantifies how much a proportional change (rather than absolute change) in a vital rate affects $\lambda$. The key here is to change the perturbation magnitude so that it is `1 * some_very_small_number`, as we are now multiplying each vital rate function by the perturbation magnitude, rather than adding it. We already have that option programmed into our `append_pert` function, so we just need to modify the `sens_vr` function body slightly.
+We can modify the `sens_vr` function slightly to compute elasticity as well. This quantifies how much a proportional change (rather than absolute change) in a vital rate affects $\lambda$. The key here is to change the perturbation magnitude so that it is very close to 1, rather than 0, as we are now multiplying each vital rate function by the perturbation magnitude, rather than adding it. We already have that option programmed into our `append_pert` function, so we just need to modify the `sens_vr` function body slightly.
 
 ```{r echo = TRUE, eval = TRUE}
 
@@ -1284,7 +1451,7 @@ This section will walk through how to compute a variety of demographic quantitie
 
 4. Per-generation population growth rate.
     
-    + $R_0$ = Dominant eigenvalue of $R$
+    + $R_0$ = Dominant eigenvalue of $R = FN$
 
 5. Mean lifetime output of recruits conditional on initial size $z_0$.
     
@@ -1292,7 +1459,7 @@ This section will walk through how to compute a variety of demographic quantitie
 
 In these formulas, $e$ is a constant function such that $e(z)\equiv1$, $P$ is a survival and growth kernel ($P(z',z)$), $F$ is a reproduction kernel ($F(z',z)$), $N$ is the fundamental operator $N = (I - P)^{-1}$, and $i$ is an identity function such that $i(z) = z$.
 
-We'll start with $l_a(z_0)$ to demonstrate another helper in `ipmr`, `mat_power` and its alias, `%^%`. These raise kernels to some power. For example, `P %^% 4` computes `P %*% P %*% P %*% P`. `mat_power(P, 4)` is identical. The left-multiplication of the kernel by a vector of 1s, $eP$ is equivalent to summing the columns of $P$. Thus, our `la_z0` function becomes:
+We will start with $l_a(z_0)$ to demonstrate another helper in `ipmr`, `mat_power` and its alias, `%^%`. These raise kernels to some power. For example, `P %^% 4` computes `P %*% P %*% P %*% P`. `mat_power(P, 4)` is identical. The left-multiplication of the kernel by a vector of 1s, $eP$ is equivalent to summing the columns of $P$. Thus, our `la_z0` function becomes:
 
 ```{r echo = TRUE, eval = TRUE}
 
@@ -1462,7 +1629,7 @@ s <- vr_values$P$s[1, ]
 
 ```
 
-We also need $z$, so that the $i \circ ...$ part is readily calculated. By default, `int_mesh` always returns a vector of length $m^2$. However, we can get a vector of unique mesh points by specifying `full_mesh = FALSE`: 
+We also need $z$, so that the $i \: \circ ...$ part is readily calculated. By default, `int_mesh` always returns a vector of length $m^2$. However, we can get a vector of unique mesh points by specifying `full_mesh = FALSE`: 
 
 ```{r echo = TRUE, eval = FALSE}
 
@@ -1507,7 +1674,7 @@ plot(as.vector(omega_bar_z0), type = 'l', xlab = "size", ylab = "size at death")
 
 ### Exercise: $R_0$
 
-Computing $R_0$ requires multiplying to the fecundity kernel by the fundamental operator. This multiplication projects the population forward by a generation, rather than a single time step. Since we have already computed the fundamental operator $N$, all we need to do is get the fecundity kernel out of our IPM object, perform the multiplication, and then compute the dominant eigenvalue. 
+Computing $R_0$ requires multiplying the fecundity kernel by the fundamental operator. This multiplication projects the population forward by a generation, rather than a single time step. Since we have already computed the fundamental operator $N$, all we need to do is get the fecundity kernel out of our IPM object, perform the multiplication, and then compute the dominant eigenvalue. 
 
 ```{r r-0-exercise, exercise = TRUE}
 
@@ -1549,7 +1716,7 @@ R <- F %*% N
 
 ### Lifetime reproductive output
 
-The final quantity we'll compute is expected lifetime reproductive output given an initial size $z_0$. This computed as:
+The final quantity we will compute is expected lifetime reproductive output given an initial size $z_0$. This computed as:
   
   + $\bar r(z_0) = eFN$
 
@@ -1571,4 +1738,4 @@ plot(as.vector(r_bar), type = 'l')
 
 ### Conclusion
 
-Next, we will get into how to create general IPMs using a data set on the plant species *Lupinus tidestromii*. These are also real data, collected from multiple sites in California!
+You made it! Hopefully you now have a better understanding of how to implement models with `ipmr`. The example above was a simple IPM, so if you have time and want to learn about general IPMs, continue on to the next set of exercises.  These get into how to create general IPMs using a data set on the plant species *Lupinus tidestromii*. These are also real data, collected from multiple sites and years in California.
