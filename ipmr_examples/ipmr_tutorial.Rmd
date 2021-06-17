@@ -31,8 +31,6 @@ if(!requireNamespace("remotes")) {
   install.packages("remotes")
 }
 
-install.packages("rlang")
-
 remotes::install_github("levisc8/ipmr")
 
 ```
