@@ -1,6 +1,6 @@
 ## Materials for ESA '21 ipmr Workshop
 
-This repository hosts the slides and tutorials for the `ipmr` workshop from ESA 2021. Tutorials are stored in `ipmr_examples/` subfolder. To run with RStudio:
+This repository hosts the tutorials for the `ipmr` workshop from ESA 2021. Tutorials are stored in `ipmr_examples/` subfolder. To run with RStudio:
 
 1. clone this repository into a folder on your computer. 
   
