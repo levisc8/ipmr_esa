@@ -41,7 +41,7 @@ The columns of the data set are:
 The first step of getting a model implemented with `ipmr` is to describe on paper how the life cycle works. This example assumes there is no seed bank. Thus, plants can survive (`s`) from one year to the next. If they survive, they will grow, shrink, or remain the same size (`g`). Reproductive plants (`r_p`) can create new plants via seeds (`r_n`) that either germinate immediately (`r_g`) to produce seedlings with size `r_d` or do not germinate at all. 
 
 
-```{r echo = FALSE}
+```{r echo = FALSE, warnings = FALSE}
 
 library(DiagrammeR)
 
@@ -55,15 +55,18 @@ grViz("
         nodesep  = 2.0]
   Plants
   
-  Plants:n -> Plants:n [label = 'P = s * g (existing plants)']
-  Plants:s -> Plants:s [label = 'F = r_p * r_n * r_d * r_g (new recruits)']
+  Plants:n -> Plants:n [label = 'Existing plants
+  P = s * g']
+  Plants:s -> Plants:s [label = 'F = r_p * r_n * r_d * r_g
+  New recruits']
     
   }    
         
 ")
 
 ```
-Here, we have defined two different processes that can produce plants at $t+1$. The first process is survival and growth of existing plants time $t$. The second process is sexual reproduction that produces new recruits at $t+1$.i In `ipmr`, each process is encapsulated in a *sub-kernel*, named $P$ and $F$ here. Note that in our diagram, we have explicitly omitted conditioning vital rates on size $z$ and $z'$, as we have not yet explored our data and are not sure yet which ones will be functions of size. 
+Here, we have defined two different processes that can produce plants at $t+1$. The first process is survival and growth of existing plants time $t$. The second process is sexual reproduction that produces new recruits at $t+1$.i In `ipmr`, each process is encapsulated in a *sub-kernel*, named $P$ and $F$ here.  
+**Note** that in our diagram, we have explicitly omitted conditioning vital rates on size $z$ and $z'$, as we have not yet explored our data and are not sure yet which ones will be functions of size. 
 
 ### Plotting the vital rate data
 
@@ -117,13 +120,15 @@ Now that we have plotted our data and decided which type of model to use for eac
 
 4. $Logit(s(z)) = \alpha_s + \beta_s * z,$
 
-5. $G(z',z) = f_G(z', \mu_G(z), \sigma_G).$ $f_G$ denotes a normal probability density function.
+5. $G(z',z) = f_G(z', \mu_G(z), \sigma_G).$  
+
+    + where $f_G$ denotes a normal probability density function.  
 
 6. $\mu_G(z) = \alpha_G + \beta_G * z.$
 
-Eq 1 defines how the model produces a new trait distribution ($n(z',t+1)$) given an initial trait distribution ($n(z,t)$) and an iteration kernel ($K(z',z)$). This process is referred to as _model iteration_ in `ipmr`. Eq 2 describes how the iteration kernel is split into more biologically interpretable parts - $P(z',z)$ and $F(z',z)$ (described above). we will see later on that we do not need to translate  Eqs 1-2 into `ipmr` syntax to implement IPMs, but it is useful to have these equations on hand.
+Eq 1 defines how the model produces a new trait distribution ($n(z',t+1)$) given an initial trait distribution ($n(z,t)$) and an iteration kernel ($K(z',z)$). For those who are familiar with matrix population models, these are the IPM equivalent of the population vectors at time t+1 and t, and the transition matrix $A$, respectively. This process is referred to as _model iteration_ in `ipmr`. Eq 2 describes how the iteration kernel is split into more biologically interpretable parts - $P(z',z)$ and $F(z',z)$ (described above). we will see later on that we do not need to translate  Eqs 1-2 into `ipmr` syntax to implement IPMs, but it is useful to have these equations on hand.
 
-From Eqs 4-6, we see two functions that we will parameterize with regression models - one for survival (Eq 4), and one for growth (Eqs 5-6). One way that IPMs incorporate random variation in traits is using variance in size conditional on survival (Eq 5). Thus, we have parameters that predict the mean size at $t+1$ (Eq 6), and a standard deviation of that mean ($\sigma_G$). The latter accounts for the fact that individuals with the same initial size may not grow/shrink by the same amount in a given year.
+From Eqs 4-6, we see two functions that we will parameterize with regression models - one for survival (Eq 4), and one for growth (Eqs 5-6). One way that IPMs incorporate random variation in traits is using variance in size conditional on survival (Eq 5). Thus, we have parameters that predict the mean size at $t+1$ (Eq 6), and a standard deviation of that mean ($\sigma_G$, Eq 5). The latter accounts for the fact that individuals with the same initial size may not grow/shrink by the same amount in a given year.
 
 The $F$ kernel is now re-written:
 
@@ -137,7 +142,9 @@ The $F$ kernel is now re-written:
 
     + NB: The rationale for the $\beta_{r_n,2} * z^2$ term will become apparent in the next section.
 
-10. $r_d(z') = f_{r_d}(z', \mu_{r_d}, \sigma_{r_d})$. $f_{r_d}$ denotes a normal probability density function.
+10. $r_d(z') = f_{r_d}(z', \mu_{r_d}, \sigma_{r_d})$. 
+
+    + where $f_{r_d}$ denotes a normal probability density function.
 
 We have now written out our IPM, and are ready to parameterize our vital rate functions!
 
@@ -196,7 +203,7 @@ r_p_pars <- coef(r_p_3)
 
 Next, flower production: 
 
-```{r, echo  = TRUE}
+```{r, echo  = TRUE, warnings = FALSE}
 
 
 r_n_1 <- glm(flower_n ~ 1, data = carp_df, family = poisson())
@@ -206,7 +213,8 @@ r_n_3 <- glm(flower_n ~ log_size + I(log_size ^ 2), data = carp_df, family = poi
 AIC(r_n_1, r_n_2, r_n_3)
 summary(r_n_3)
 
-# Looks overdispersed. Let's try a negative binomial instead.
+# Looks overdispersed -> Residual deviance / degrees of freedom should not be much greater than 1 (max ~1.1) 
+# Let's try a negative binomial instead.
 
 library(MASS)
 
@@ -267,7 +275,9 @@ Since we are not going to cover stochastic IPMs in this exercise, we will skip t
 
 ### Exercise: `init_ipm()`
 
+Let's recap that!
 Use the `init_ipm()` function to initialize an IPM for the Carpobrotus species we are working with. 
+Try to fill out the `init_ipm` function correctly. Click the `Run Code` to see if you got it right or use the `hint` button (left) if you get stuck. 
 
 ```{r init_ipm-exercise, exercise = TRUE}
 
@@ -501,6 +511,8 @@ The function that does this is called `define_impl()`. It takes two arguments: `
 
 3. `state_end`: the name of the trait that the kernel produces. These correspond to `z_2` in the vital rate expressions for simple IPMs (with the `_2` suffix removed). In Eq 1, this corresponds to $n(z',t+1)$ on the left hand side of the equals sign.
 
+2 & 3 might seem unnecessary for this example (after all, we only have one state variable, `z`, right now). However, it will make general IPMs a lot easier! For general models, the `state_start` may not always be the same as `state_end`. In the case of transitions to and from discrete states, the entries are the names of the discrete state variable. 
+
 Below is an example of the $P(z',z)$ part of the `kernel_impl_list` for the model we have defined above. Notice how the `P` list is nested within another list. 
 
 ```{r eval = FALSE, echo = TRUE}
@@ -598,7 +610,6 @@ carpobrotus_ipm <- define_impl(
 )
 
 ```
-For general models, the `state_start` may not always be the same as `state_end`. In the case of transitions to and from discrete states, the entries are the names of the discrete state variable. 
 
 ### Defining the range of integration
 
@@ -774,6 +785,14 @@ Next, we will run through some basic analyses that `ipmr` provides. After that, 
 is_conv_to_asymptotic(____, tol = 1e-9)
 
 conv_plot(____, iterations = 25:50)
+
+```
+
+```{r convergence-exercise-solution}
+
+is_conv_to_asymptotic(carpobrotus_observed_ipm, tol = 1e-9)
+
+conv_plot(carpobrotus_observed_ipm, iterations = 25:50)
 
 ```
 
@@ -955,12 +974,12 @@ Earlier in the tutorial, we said that `ipmr` does not produce iteration kernels.
 
 ### Exercise: construct $K(z',z)$
 
-
+Lets construct and plot the full $K(z',z)$ (*hint* for plotting, called the `mega_matrix` )
 ```{r make-k-exercise, exercise = TRUE}
 
 carp_K <- make_iter_kernel(____)
 
-plot(carp_K)
+plot(carp_K$)
 
 ```
 
