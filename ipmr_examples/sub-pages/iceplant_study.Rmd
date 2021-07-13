@@ -1,4 +1,4 @@
-### Setup
+### Overview
 
 *Carpobrotus* species are succulents in the family *Aizoaceae*. Most are native to Cape Region of South Africa, and some have become invasive in Mediterranean-like ecosystems around the world. The exercise below will use data collect on a *Carpobrotus* species from a suburb of Tel Aviv, in Israel. This particular species/hybrid complex is a perennial that can live for decades.
 
@@ -55,19 +55,23 @@ grViz("
         nodesep  = 2.0]
   Plants
   
-  Plants:n -> Plants:n [label = 'P = s * g (existing plants)']
-  Plants:s -> Plants:s [label = 'F = r_p * r_n * r_d * r_g (new recruits)']
+  Plants:n -> Plants:n [label = 'Existing plants
+  P = s * g']
+  Plants:s -> Plants:s [label = 'F = r_p * r_n * r_d * r_g
+  New recruits']
     
   }    
         
 ")
 
 ```
-Here, we have defined two different processes that can produce plants at $t+1$. The first process is survival and growth of existing plants time $t$. The second process is sexual reproduction that produces new recruits at $t+1$.i In `ipmr`, each process is encapsulated in a *sub-kernel*, named $P$ and $F$ here. Note that in our diagram, we have explicitly omitted conditioning vital rates on size $z$ and $z'$, as we have not yet explored our data and are not sure yet which ones will be functions of size. 
+Here, we have defined two different processes that can produce plants at $t+1$. The first process is survival and growth of existing plants time $t$. The second process is sexual reproduction that produces new recruits at $t+1$. In `ipmr`, each process is encapsulated in a *sub-kernel*, named $P$ and $F$ here.  
+
+**Note** that in our diagram, we have explicitly omitted conditioning vital rates on size $z$ and $z'$, as we have not yet explored our data and are not sure yet which ones will be functions of size. 
 
 ### Plotting the vital rate data
 
-Now that we have drawn the life cycle graph, we should have do some exploratory data analysis to see what the demographic relationships look like. we will make a set of plots for survival, growth, probability of flowering, flower number, and recruit sizes, then decide what sort of regression models make sense for each one.
+Now that we have drawn the life cycle graph, we should do some exploratory data analysis to see what the demographic relationships look like. we will make a set of plots for survival, growth, probability of flowering, flower number, and recruit sizes, then decide what sort of regression models make sense for each one.
 
 
 ```{r plotting, echo = TRUE, fig.height = 8, fig.width = 7}
@@ -117,13 +121,15 @@ Now that we have plotted our data and decided which type of model to use for eac
 
 4. $Logit(s(z)) = \alpha_s + \beta_s * z,$
 
-5. $G(z',z) = f_G(z', \mu_G(z), \sigma_G).$ $f_G$ denotes a normal probability density function.
+5. $G(z',z) = f_G(z', \mu_G(z), \sigma_G).$ 
+
+    + where $f_G$ denotes a normal probability density function.
 
 6. $\mu_G(z) = \alpha_G + \beta_G * z.$
 
-Eq 1 defines how the model produces a new trait distribution ($n(z',t+1)$) given an initial trait distribution ($n(z,t)$) and an iteration kernel ($K(z',z)$). This process is referred to as _model iteration_ in `ipmr`. Eq 2 describes how the iteration kernel is split into more biologically interpretable parts - $P(z',z)$ and $F(z',z)$ (described above). we will see later on that we do not need to translate  Eqs 1-2 into `ipmr` syntax to implement IPMs, but it is useful to have these equations on hand.
+Eq 1 defines how the model produces a new trait distribution ($n(z',t+1)$) given an initial trait distribution ($n(z,t)$) and an iteration kernel ($K(z',z)$). For those who are familiar with matrix population models, these are the IPM equivalent of the population vectors at time t+1 and t, and the transition matrix $A$, respectively. This process is referred to as _model iteration_ in `ipmr`. Eq 2 describes how the iteration kernel is split into more biologically interpretable parts - $P(z',z)$ and $F(z',z)$, which we described above in our lifecycle diagram. We will soon see that we do not need to translate  Eqs 1-2 into `ipmr` syntax to implement our IPM, but it is useful to have these equations on hand.
 
-From Eqs 4-6, we see two functions that we will parameterize with regression models - one for survival (Eq 4), and one for growth (Eqs 5-6). One way that IPMs incorporate random variation in traits is using variance in size conditional on survival (Eq 5). Thus, we have parameters that predict the mean size at $t+1$ (Eq 6), and a standard deviation of that mean ($\sigma_G$). The latter accounts for the fact that individuals with the same initial size may not grow/shrink by the same amount in a given year.
+From Eqs 4-6, we see two functions that we will parameterize with regression models - one for survival (Eq 4), and one for growth (Eqs 5-6). One way that IPMs incorporate random variation in traits is using variance in size conditional on survival (Eq 5). Thus, we have parameters that predict the mean size at $t+1$ (Eq 6), and a standard deviation of that mean ($\sigma_G$, Eq 5). The latter accounts for the fact that individuals with the same initial size may not grow/shrink by the same amount in a given year.
 
 The $F$ kernel is now re-written:
 
@@ -137,13 +143,15 @@ The $F$ kernel is now re-written:
 
     + NB: The rationale for the $\beta_{r_n,2} * z^2$ term will become apparent in the next section.
 
-10. $r_d(z') = f_{r_d}(z', \mu_{r_d}, \sigma_{r_d})$. $f_{r_d}$ denotes a normal probability density function.
+10. $r_d(z') = f_{r_d}(z', \mu_{r_d}, \sigma_{r_d})$.
+
+    + Where $f_{r_d}$ denotes a normal probability density function.
 
 We have now written out our IPM, and are ready to parameterize our vital rate functions!
 
 ### Implementing the regression models
 
-It is time to implement the regression models. In order to investigate goodness of fit, we will implement vital rate models with an intercept only, a single fixed effect for size, and a quadratic term for size. we will then use AIC to select the best one. we will start with the survival model (parameterizing the function in Eq 4).
+It is time to implement the regression models. In order to investigate goodness of fit, we will implement vital rate models with an intercept only, a single fixed effect for size, and a quadratic term for size. we will then use AIC to select the best one. We will start with the survival model (parameterizing the function in Eq 4).
 
 ```{r, echo  = TRUE}
 
@@ -206,7 +214,8 @@ r_n_3 <- glm(flower_n ~ log_size + I(log_size ^ 2), data = carp_df, family = poi
 AIC(r_n_1, r_n_2, r_n_3)
 summary(r_n_3)
 
-# Looks overdispersed. Let's try a negative binomial instead.
+# Looks overdispersed -> Residual deviance / degrees of freedom should not be
+# much greater than 1 (max ~1.1). Let's try a negative binomial instead.
 
 library(MASS)
 
@@ -241,34 +250,35 @@ Before writing any more code, we need to work out what type of IPM we want. `ini
 
 1. `sim_gen` - simple vs general IPM: 
 
-    + Simple IPMs structure a population with one, and only one, continuous trait. `init_ipm(sim_gen = ""simple", ...)`.
+    + Simple IPMs structure a population with one, and only one, continuous trait. `init_ipm(sim_gen = "simple", ...)`.
     
     + General IPMs structure a population with more than one continuous trait and/or a mixture of discrete and continuous traits. `init_ipm(sim_gen = "general", ...)`.
     
-*This is a simple IPM, because we are just using log-transformed surface area to structure the population. There is not a seed bank or seedling stage, nor is there another trait that we use to predict demographic outcomes.*
+*This is a simple IPM, because we are just using log-transformed surface area to structure the population. There is no seed bank or seedling stage, nor is there another trait that we use to predict demographic outcomes.*
 
 2. `di_dd` - Density/frequency-independent vs density/frequency dependent IPM:
 
     + Density/frequency-independent models do not have any vital rates/sub-kernels that are functions of population size or relative frequency of a trait value. `init_ipm(..., di_dd = "di")`.
     
-    + Density/frequency-independent models have at least 1, but maybe more, vital rates/su b-kernels that are functions of population size or relative frequency of a trait value. `init_ipm(..., di_dd = "dd")`.
+    + Density/frequency-independent models have at least 1, but maybe more, vital rates/sub-kernels that are functions of population size or relative frequency of a trait value. `init_ipm(..., di_dd = "dd")`.
     
 *This is a density-independent IPM because we do not have information on how vital rates vary with population size or proximity of individuals to one another.*
 
 3. `det_stoch` - Deterministic vs stochastic IPM:
 
-    + Deterministic IPMs do not include any information on how vital rates vary through time. Thus, they will (usually) converge to the same stable state regardless of the initial population conditions after some transient phase. `init_ipm(..., det_stoch = "det")`.
+    + Deterministic IPMs do not include any information on how vital rates vary through time. Thus, they will (usually) converge to the same stable state, regardless of the initial population conditions, after some transient phase. `init_ipm(..., det_stoch = "det")`.
      
     + Stochastic IPMs do include information on how vital rates vary as a function of the environment, and include these changes into simulations of population dynamics. `init_ipm(..., det_stoch = "stoch")`.
     
-*This is a deterministic IPM because we do not have any information on how vital rates vary as a function of the environment.*
+*This is a deterministic IPM because we do not have any information on how vital rates vary as a function of the environment or time.*
     
 Since we are not going to cover stochastic IPMs in this exercise, we will skip the last two arguments to `init_ipm()`. 
 
 ### Exercise: `init_ipm()`
 
-Use the `init_ipm()` function to initialize an IPM for the Carpobrotus species we are working with. 
+Let's recap that! Use the `init_ipm()` function to initialize an IPM for the Carpobrotus species we are working with. 
 
+Try to fill out the `init_ipm` function correctly. Click the `Run Code` to see if you got it right or use the `hint` button (left) if you get stuck. 
 ```{r init_ipm-exercise, exercise = TRUE}
 
 carpobrotus_ipm <- init_ipm(sim_gen = ____, di_dd = ____, det_stoch = ____)
@@ -485,13 +495,13 @@ We have now defined all the equations in our model. The next step is to tell `ip
 
 ### Defining numerical implementation rules
 
-`ipmr` computes all values by numerically approximating the integrals in the IPM and then iterating IPM system. This means we have to provide information on how that integration and iteration should should be performed (this is where having Eq 1 written out becomes helpful!). We need to supply three pieces of information for this:
+`ipmr` computes all values by numerically approximating the integrals in the IPM and then iterating the IPM system. This means we have to provide information on how that integration and iteration should should be performed. Fortunately, we can do this without specifying Eq 1 or Eq 2 from above. We need to supply three pieces of information for this step:
 
 1. The numerical integration rule. Currently, the only one supported by `ipmr` is the midpoint rule.
 
-2. The trait distribution that each kernel begins on.
+2. The trait distribution that each sub-kernel begins on.
 
-3. The trait distribution that each kernel produces.
+3. The trait distribution that each sub-kernel produces.
 
 The function that does this is called `define_impl()`. It takes two arguments: `proto_ipm` and `kernel_impl_list`. The `proto_ipm` is the object created by `init_ipm()`/`define_kernel()`, and the `kernel_impl_list` is a named list of lists. The names in the list should be the name of the kernel. Each of these should have 3 slots: 
 
@@ -500,6 +510,8 @@ The function that does this is called `define_impl()`. It takes two arguments: `
 2. `state_start`: the name of the trait that the kernel acts on. These correspond to `z_1` in the vital rate expressions for simple IPMs (with the `_1` suffix removed). In Eq 1, this corresponds to $n(z, t)$ on the right hand side of the equals sign.
 
 3. `state_end`: the name of the trait that the kernel produces. These correspond to `z_2` in the vital rate expressions for simple IPMs (with the `_2` suffix removed). In Eq 1, this corresponds to $n(z',t+1)$ on the left hand side of the equals sign.
+
+2 & 3 might seem unnecessary for this example - after all, we only have one state variable, `z`. However, it will make general IPMs a lot easier! For general models, the `state_start` may not always be the same as `state_end`. In the case of transitions to and from discrete states, the entries are the names of the discrete state variable.
 
 Below is an example of the $P(z',z)$ part of the `kernel_impl_list` for the model we have defined above. Notice how the `P` list is nested within another list. 
 
@@ -777,6 +789,14 @@ conv_plot(____, iterations = 25:50)
 
 ```
 
+```{r convergence-exercise-solution}
+
+is_conv_to_asymptotic(carpobrotus_observed_ipm, tol = 1e-9)
+
+conv_plot(carpobrotus_observed_ipm, iterations = 25:50)
+
+```
+
 We can see that the model has not converged to asymptotic dynamics at our requested tolerance. However, the convergence plot looks pretty good. We can either accept this result, or re-run `make_ipm()` with more iterations. Since this is a simple model and runs pretty quickly, we will re-run it with 100 iterations and then try again.
 
 
@@ -955,6 +975,7 @@ Earlier in the tutorial, we said that `ipmr` does not produce iteration kernels.
 
 ### Exercise: construct $K(z',z)$
 
+Lets construct and plot the full $K(z',z)$ (*hint* for plotting, called the `mega_matrix`).
 
 ```{r make-k-exercise, exercise = TRUE}
 
@@ -1059,11 +1080,11 @@ $\lambda$ is very sensitive to moderately large individuals becoming very large.
 
 ### Lower level perturbations
 
-Function value perturbations allow us to ask questions like *what happens if we tweak survival of size $z_0$ individuals?* or *what happens if we increase propagule number for the largest 5% of plants?* Function value perturbations are expensive to compute by brute force, but fortunately, analytical formulae exist to help us out. The general formula for sensitivity from above can also be written:
+Function value perturbations allow us to ask questions like *what happens if we tweak survival of size $z_0$ individuals?* or *what happens if we increase propagule number for the largest individuals?* Function value perturbations are expensive to compute by brute force, but fortunately, analytical formulae exist to help us out. The general formula for sensitivity from above can also be written:
 
 1. $\frac{\delta \lambda(\epsilon)}{\delta \epsilon}\Bigg\rvert_{\epsilon = 0}  = \frac{\int \int v(z')C(z',z)w(z) dz' dz}{\int v(z)w(z) dz}$
 
-where $C(z',z)$ is a perturbation kernel, and $v$ and $w$ are the left and right eigenvectors, respectively. In general, a perturbation function $\delta_{z_0}(z)$ introduces a localized perturbation at size $z_0$. We will start with the example of perturbing survival for $z_0 \in [L, U]$. Recalling that 
+where $C(z',z)$ is a perturbation kernel, and $v$ and $w$ are the left and right eigenvectors, respectively. The perturbation function $\delta_{z_0}(z)$ introduces a localized perturbation at size $z_0$. We will start with the example of perturbing survival for $z_0 \in [L, U]$. Recalling that 
 
 2. $K(z',z) = P(z',z) + F(z',z) = s(z)G(z',z) + r_p(z)r_n(z)r_d(z')r_g$,
 
@@ -1083,7 +1104,7 @@ This looks pretty nasty, but we can re-write is using operator notation, which e
 
 6. $\frac{(vG) \: \circ \: w}{\langle v,w \rangle}$.
 
-This still looks nasty, but we can parse it into more manageable language as follows: the change $\lambda$ induced by a small change in $s(z)$ near $z_0$ depends on the fraction of individuals of size $z_0$ that would be affected (given by $w$), their size after they grow (given by $G$), and their reproductive value after growth (given by $v$). This is scaled by the total reproductive value of the population (given by $\langle v,w \rangle$). 
+This still looks nasty, but we can parse it into more manageable language as follows: the change in $\lambda$ induced by a small change in $s(z)$ near $z_0$ depends on the fraction of individuals of size $z_0$ that would be affected (given by $w$), their size after they grow (given by $G$), and their reproductive value after growth (given by $v$). This is scaled by the total reproductive value of the population (given by $\langle v,w \rangle$). 
 
 Once we have the sensitivity written out, we can also write out the elasticity. The equation for it from above becomes
 
@@ -1238,11 +1259,14 @@ These are raw expressions, not text strings. If we wanted to, for example, pertu
 
 ```{r echo = TRUE, eval = FALSE}
 
+# new_fun_form() is necessary when assigning new values to a given vital rate expression. 
+# The "why" isn't important for this exercise, we just have to remember to use it. 
+
 vital_rate_exprs(base_proto, kernel = "P", "s") <- new_fun_form(plogis(alpha_s + beta_s * z_1) + pert)
 
 ```
 
-This is great for interactive use, but it would be better to have something we can program with. That way, we do not have to re-type this for each vital rate. Below is a function that will programatically append the perturbation term. It uses `parse_expr` from `rlang`  instead of `base::parse`, as the latter does not quite produce the format we need.
+This is great for interactive use, but it would be better to have something we can program with. That way, we do not have to re-type this expression for each vital rate. Below is a function that will programatically append the perturbation term. It uses `parse_expr` from `rlang`  instead of `base::parse`, as the latter does not quite produce the format we need.
 
 ```{r echo = TRUE, eval = TRUE}
 
@@ -1631,7 +1655,7 @@ s <- vr_values$P$s[1, ]
 
 We also need $z$, so that the $i \: \circ ...$ part is readily calculated. By default, `int_mesh` always returns a vector of length $m^2$. However, we can get a vector of unique mesh points by specifying `full_mesh = FALSE`: 
 
-```{r echo = TRUE, eval = FALSE}
+```{r echo = TRUE, eval = TRUE}
 
 mesh_ps <- int_mesh(carpobrotus_observed_ipm_converged, full_mesh = FALSE)
 i_z     <- mesh_ps$z_1
@@ -1720,7 +1744,7 @@ The final quantity we will compute is expected lifetime reproductive output give
   
   + $\bar r(z_0) = eFN$
 
-Recalling that the left multiplication by $e$ is equivalent to summing the columns, we just need to use $F$ and $N$, which we've already computed in prior exercises. After computing $\bar r(z_0)$, plot the result.
+Recalling that the left multiplication by $e$ is equivalent to summing the columns, we just need to use $F$ and $N$, which we have already computed in prior exercises. After computing $\bar r(z_0)$, plot the result.
 
 ```{r lro-exercise, exercise = TRUE}
 
@@ -1738,4 +1762,4 @@ plot(as.vector(r_bar), type = 'l')
 
 ### Conclusion
 
-You made it! Hopefully you now have a better understanding of how to implement models with `ipmr`. The example above was a simple IPM, so if you have time and want to learn about general IPMs, continue on to the next set of exercises.  These get into how to create general IPMs using a data set on the plant species *Lupinus tidestromii*. These are also real data, collected from multiple sites and years in California.
+You made it! Hopefully you now have a better understanding of how to implement models with `ipmr`. The example we worked through is a simple IPM. You can find resources for how to work with general IPMs [here](https://levisc8.github.io/ipmr/articles/general-ipms.html). We look forward to seeing you in the workshop!

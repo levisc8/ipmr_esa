@@ -1,5 +1,5 @@
 ---
-title: "ipmr Examples"
+title: "ipmr Introductory Tutorial"
 output: 
   learnr::tutorial:
     progressive: true
@@ -19,19 +19,13 @@ knitr::opts_chunk$set(echo = FALSE)
 
 ## Overview
 
-Welcome to the `ipmr` workshop! This workshop will teach you the basics of how to use `ipmr` to implement Integral Projection Models (IPM), as well as how to work with model objects to complete further analyses. Our first example will use real data to investigate optimal management strategies for an invasive population *Carpobrotus* species (iceplant) in Israel. We will also walk through a few additional analyses, and how to use helper functions from `ipmr` to compute them.
+Welcome to the `ipmr` pre-workshop tutorial! This tutorial will teach you the basics of how to use `ipmr` to implement Integral Projection Models (IPMs), as well as how to work with model objects to complete further analyses. We will use real data to investigate optimal management strategies for an invasive population of *Carpobrotus* species (iceplant) in Israel. We will also walk through a few additional analyses, and how to use helper functions from `ipmr` to compute them. 
 
-Next, we will use a data set for an endangered *Lupine* species from California to demonstrate how to model populations structured by a mixture of discrete and continuous traits. 
+This tutorial contains demonstrations of some newer features in `ipmr` available in version `0.0.3`. This is now on CRAN as of mid-July 2021. Please update to this version if you have not already, as some of the functionality will not be available otherwise.
 
-This tutorial contains demonstrations of some newer features in `ipmr`, and therefore makes use of the development version of the package. If you have not already installed this, please run the following chunk:
+```{r eval = FALSE, echo = TRUE}
 
-```{r echo = TRUE, eval = FALSE}
-
-if(!requireNamespace("remotes")) {
-  install.packages("remotes")
-}
-
-remotes::install_github("levisc8/ipmr")
+install.packages("ipmr")
 
 ```
 
@@ -39,33 +33,31 @@ remotes::install_github("levisc8/ipmr")
 
 **Package website**
 
-The project website is https://levisc8.github.io/ipmr. This website contains all of the help files for the package functions, as well as a number of longer articles on how to implement models.
+The project website is https://levisc8.github.io/ipmr. This website contains all of the help files for the package functions, as well as a number of longer articles on how to implement more complicated models, including two kinds of stochastic IPMs, general IPMs (_i.e._ IPMs with a mix of discrete and continuous state variables), and IPMs with mixtures of discrete and continuous environmental variation.
 
 **Bug reports**
 
-Please use the issue tracker here: https://github.com/levisc8/ipmr/issues. If you are not comfortable with GitHub, then you can also email me (Sam).
+Please use the issue tracker here: https://github.com/levisc8/ipmr/issues. If you are not comfortable with GitHub, then you can also email Sam: <levisc8@gmail.com>.
 
 **Instructor Email Addresses**
 
 Sam: <levisc8@gmail.com>/<sam.levin@idiv.de>
 
-*Others! Fill in later*
-
-
+Sanne: <sanne.evers@idiv.de>
 
 ### Notation for the tutorial
 
-This tutorial will make extensive use of exercises that use mathematical notation of IPMs to demonstrate how `ipmr` works with these models. This slide is a quick guide for the notation convention
+This exercises in this tutorial use the mathematical notation of IPMs to demonstrate how `ipmr` works with these models. This slide is a quick guide for the notation convention
 
 #### Traits, kernels and functions
 
   - Population trait distributions, such as size, weight, height, or color will be denoted $n(z,t)$ and $n(z',t+1)$. These are the trait distributions for trait $z$ at time $t$ and $z'$ at time $t+1$, respectively.
   
-  - Bivariate kernels (*i.e.* kernels that are functions of $z$ and $z'$) will be capitalized and have at least two arguments (*e.g.* $P(z',z)$, $K(z',z)$). These may contain subscripts to denote parameter set indices (*e.g.* $P_{yr}(z',z)$).
+  - Bivariate kernels (*i.e.* kernels that are functions of $z$ and $z'$) will be capitalized and have at least two arguments (*e.g.* $P(z',z)$, $K(z',z)$). 
   
-  - Univariate functions (*i.e.* a regression model `survival ~ size`) will be lower case functions and have at least 1 argument (*e.g.* $Logit(s(z))$, or $Log(r_n(z))$). These may contain subscripts to denote parameter set indices (*e.g.* $Logit(r_{p,yr}(z))$).
+  - Univariate functions (*i.e.* a regression model `survival ~ size`) will be lower case and have 1 argument (*e.g.* $Logit(s(z))$, or $Log(r_n(z))$). 
   
-  - Constant demographic parameters will be lower case and not be a function of anything (*e.g.* $r_g$). These may contain subscripts to denote parameter set indices (*e.g.* $r_{g,site}$).
+  - Constant demographic parameters will be lower case and not be a function of anything (*e.g.* $r_g$).
 
 ## Iceplant IPM
 
@@ -73,11 +65,5 @@ This tutorial will make extensive use of exercises that use mathematical notatio
 
 ```
 
-
-## Lupine IPM
-
-```{r, child = 'sub-pages/lupine_study.rmd'}
-
-```
 
 
